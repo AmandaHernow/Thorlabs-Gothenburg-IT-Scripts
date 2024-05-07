@@ -36,7 +36,7 @@ v.2.0: Developed switch menu for dynamic script interactions."
 3. Explore the possibility of dynamically finding cache paths from program installation paths for targeted cleaning.
 4. Implement robust error handling to manage and log exceptions and errors effectively."
 
-# Menu and option selection functionality
+# Main Menu and option selection functionality
 function Show-Menu {
     param ([string]$Title = 'Computer Clean Up Menu')
     Clear-Host
@@ -76,7 +76,6 @@ function Select-Option {
     }
 }
 
-# Function placeholders for each option
 function DeepCacheClearing {
     &$confirm "Opening Deep Cache Clearing..."
     Clear-Host
@@ -85,96 +84,84 @@ function DeepCacheClearing {
     # Initial setup and backup directory check
     $rootPath = "C:\"
     $backupRoot = "C:\cacheBackup"
+    $filesMoved = @()
 
     # Ensure the backup root directory exists
-    try {
-        if (-not (Test-Path -Path $backupRoot)) {
-            &$info "Creating Backup Folder..."
-            New-Item -Path $backupRoot -ItemType Directory -Force -Verbose | Out-Null
-            &$confirm "Backup root directory created..."
-        } else {
-            &$info "Backup root directory already exists..."
-        }
-    } catch {
-        &$logError "Error creating backup root directory: $_"
+    if (-not (Test-Path -Path $backupRoot)) {
+        New-Item -Path $backupRoot -ItemType Directory -Force | Out-Null
+        &$info "Backup root directory created..."
+    } else {
+        &$info "Backup root directory already exists..."
     }
 
     $date = Get-Date -Format "yyyyMMddHHmmss"
     $backupDir = Join-Path -Path $backupRoot -ChildPath "cacheBackup_$date"
+    New-Item -Path $backupDir -ItemType Directory -Force | Out-Null
     $logPath = Join-Path -Path $backupRoot -ChildPath "$($date).log"
+    New-Item -Path $logPath -ItemType File -Force | Out-Null
 
-    try {
-        &$info "Creating Session Backup Log and Folder"
-        New-Item -Path $backupDir -ItemType Directory -Force -Verbose | Out-Null
-        New-Item -Path $logPath -ItemType File -Force -Verbose | Out-Null
-        &$confirm "Backup folder and log file prepared..."
-    } catch {
-        &$logError "Error preparing folders and log file: $_"
-    }
+    # Define excluded extensions
+    $excludedExtensions = @(
+        ".config", ".ini", ".db", ".sqlite", ".exe", ".dll", ".dat", ".bin", ".lock", ".log", ".LOG1", ".LOG2", ".xml", ".json", ".bak", ".tmp",
+        ".old", ".backup", ".ps1", ".sh", ".bat", ".cmd", ".cert", ".pfx", ".key", ".rb", ".py", ".ldf", ".mdb", ".accdb",
+        ".ost", ".pst", ".tiff", ".tif", ".mht", ".mhtml", ".gadget", ".iso", ".vmdk", ".vmx", ".ova", ".ovf", ".vdi",
+        ".vhdx", ".qcow", ".qcow2", ".aspx", ".php", ".jsp", ".class", ".jar", ".war", ".properties", ".license", ".fla",
+        ".swf", ".lnk", ".sys", ".cpl", ".msc", ".cab", ".msi", ".msp", ".com", ".scr", ".htaccess", ".gitignore", ".npmrc",
+        ".yaml", ".yml", ".csv", ".tar", ".gz", ".zip", ".7z", ".rar", ".vbs", ".ts", ".js", ".jsx", ".tsx", ".xlam", ".xls",
+        ".xlsx", ".xlsm", ".ppt", ".pptx", ".doc", ".docx", ".pdf", ".epub", ".sdf", ".mdf", ".hdf", ".ndf", ".cs", ".cpp",
+        ".c", ".h", ".hpp", ".java", ".kt", ".swift", ".go", ".rb", ".pl", ".pm", ".scala", ".groovy", ".sql", ".rdl", ".rds",
+        ".sln", ".csproj", ".vbproj", ".cppproj", ".swiftproj", ".xcodeproj", ".git", ".hg", ".svn", ".bak", ".tmp", ".md",
+        ".markdown", ".r", ".f#", ".dtsx", ".dtsConfig", ".rdlc", ".resx", ".config", ".manifest", ".ml", ".pyc", ".obj",
+        ".o", ".a", ".lib", ".so", ".dylib", ".img", ".dds", ".xcf", ".psd", ".ai", ".indd", ".flp", ".ses", ".prproj", ".aep",
+        ".vpk", ".pak", ".bik", ".cur", ".ani", ".theme", ".themepack", ".deskthemepack", ".dll", ".drv", ".sys", ".css", ".html"
+    )
 
-    # Exclusion list for files not to be moved
-    $excludedExtensions = @(".config", ".ini", ".db", ".sqlite", ".exe", ".dll", ".dat", ".bin", ".lock", ".log", ".xml", ".json", ".bak", ".tmp", ".old", ".backup", ".ps1", ".sh", ".bat", ".cmd", ".cert", ".pfx", ".key", ".rb", ".py", ".ldf", ".data base")
+    &$info "Scanning for cache directories and files..."
+    $cacheDirectories = Get-ChildItem -Path $rootPath -Directory -Recurse -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -like "*cache*" }
 
-    # Variables to track number of files moved and their total size
-    $filesMoved = 0
-    $totalSizeMoved = 0
-
-    # Recursive file processing
-    &$info "Scanning for cache directories..."
-    $cacheDirs = Get-ChildItem -Path $rootPath -Directory -Recurse -Force -ErrorAction SilentlyContinue -Verbose |
-        Where-Object { $_.Name -like "*cache*" -and $_.FullName -notlike "*$backupRoot*" }
-
-    foreach ($dir in $cacheDirs) {
-        $files = Get-ChildItem -Path $dir.FullName -File -Recurse -Force -ErrorAction SilentlyContinue -Verbose |
-            Where-Object { $ext = [System.IO.Path]::GetExtension($_.Name); $ext -ne "" -and $ext -notin $excludedExtensions }
+    foreach ($dir in $cacheDirectories) {
+        $files = Get-ChildItem -Path $dir.FullName -File -Recurse -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -notin $excludedExtensions }
 
         foreach ($file in $files) {
             try {
-                $relativePath = $file.FullName.Substring($rootPath.Length)
-                $destinationFile = Join-Path -Path $backupDir -ChildPath $relativePath
-                $destinationDir = Split-Path -Path $destinationFile -Parent
-                if (-not (Test-Path -Path $destinationDir)) {
-                    New-Item -Path $destinationDir -ItemType Directory -Force -Verbose | Out-Null
-                }
-                Move-Item -Path $file.FullName -Destination $destinationFile -Force -Verbose
-                $fileSize = $file.Length / 1MB
-                $totalSizeMoved += $fileSize
-                $filesMoved++
-                "$($file.FullName) ($("{0:N2}" -f $fileSize) MB) moved to $destinationFile" | Out-File -Append -FilePath $logPath
-                "`r`n" | Out-File -Append -FilePath $logPath
+                $destinationFile = Join-Path -Path $backupDir -ChildPath $file.Name
+                Move-Item -Path $file.FullName -Destination $destinationFile -Force
+                $filesMoved += @{ "OriginalPath"=$file.FullName; "BackupPath"=$destinationFile; "OriginalName"=$file.Name }
+                "$($file.FullName) moved to $destinationFile" | Out-File -Append -FilePath $logPath
             } catch {
-                "$file.FullName failed to move: $_" | Out-File -Append -FilePath $logPath
-                "`r`n" | Out-File -Append -FilePath $logPath
+                "$($file.FullName) could not be moved: $_" | Out-File -Append -FilePath $logPath
+                continue
             }
         }
     }
 
-    # Compress and finalize
     &$info "Compressing backup..."
     try {
         $compressedFile = "$backupDir.zip"
-        Compress-Archive -Path $backupDir -DestinationPath $compressedFile -Force -Verbose
-        Remove-Item -Path $backupDir -Recurse -Force -Verbose
+        Compress-Archive -Path $backupDir -DestinationPath $compressedFile -Force
+        Remove-Item -Path $backupDir -Recurse -Force
 
-        # Log final stats
-        "Total backup size: $("{0:N2}" -f $totalSizeMoved) MB" | Out-File -Append -FilePath $logPath
-        "Total number of cache files moved: $filesMoved" | Out-File -Append -FilePath $logPath
-        "`r`n" | Out-File -Append -FilePath $logPath
-
-        &$confirm "Backup and compression complete. Total backup size: $("{0:N2}" -f $totalSizeMoved) MB, Files Moved: $filesMoved."
+        "Backup and compression complete. Files Moved: $($filesMoved.Count)." | Out-File -Append -FilePath $logPath
     } catch {
-        &$logError "Error compressing backup or calculating size: $_"
+        # Move files back if compression fails
+        foreach ($file in $filesMoved) {
+            Move-Item -Path $file.BackupPath -Destination $file.OriginalPath -Force
+            "Failed to compress; $($file.BackupPath) moved back to $($file.OriginalPath) as $($file.OriginalName)" | Out-File -Append -FilePath $logPath
+        }
+        &$logError "Error during compression: $_"
     }
 
-    # Ask user if they want to return to the main menu
     $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
     if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
         Select-Option
     } else {
         &$confirm "Exiting..."
     }
-    ""
 }
+
+
 
 function LogOffAllUsersExceptCurrent {
     Clear-Host
