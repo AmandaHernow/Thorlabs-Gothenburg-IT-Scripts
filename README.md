@@ -24,13 +24,15 @@ Before running these scripts, ensure that the Microsoft Teams PowerShell module 
 Installation
 Clone this repository to your local machine using Git:
 ```powershell
-  git clone https://github.com/yourgithubprofile/Thorlabs-Gothenburg-IT-Scripts.git```
+  git clone https://github.com/yourgithubprofile/Thorlabs-Gothenburg-IT-Scripts.git
+```
 
 Usage
 Running TeamsAssignNumbers.ps1
 Navigate to the directory containing the script and run:
   ```powershell
-  .\TeamsAssignNumbers.ps1```
+  .\TeamsAssignNumbers.ps1
+```
 
 Choose the desired output format or the option to assign phone numbers via the interactive menu.
 OBS! You must PIM: Teams Administrator in Azure before assigning number to teams account.
@@ -38,7 +40,8 @@ OBS! You must PIM: Teams Administrator in Azure before assigning number to teams
 Running Cache_CookieClearer.ps1
 Ensure you have administrative rights. Navigate to the script's directory and execute:
   ```powershell
-  .\Cache_CookieClearer.ps1```
+  .\Cache_CookieClearer.ps1
+```
 
 Follow the on-screen prompts to select specific cleaning tasks.
 
