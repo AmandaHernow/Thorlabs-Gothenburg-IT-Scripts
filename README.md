@@ -1,4 +1,4 @@
-Thorlabs-Gothenburg-IT-Scripts
+# Thorlabs-Gothenburg-IT-Scripts
 
 Welcome to the Thorlabs Gothenburg IT Scripts repository. This repository houses a collection of PowerShell scripts designed to facilitate IT management tasks related to software and system maintenance.
 
@@ -20,7 +20,8 @@ Before running these scripts, ensure that the Microsoft Teams PowerShell module 
 - **Set the execution policy appropriately** if you encounter any policy-related errors. This can be done by running:
   ```powershell
   Set-ExecutionPolicy Bypass -Scope Process -Force
-```
+  ```
+
 
 ### Installation
 Clone this repository to your local machine using Git:
