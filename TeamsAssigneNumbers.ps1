@@ -29,21 +29,17 @@ V. 2.4: Added functionality to remove phone numbers from teams users."
 &$info "The script checks and installs the necessary PowerShell modules. Execute with .\\TeamsAssignNumbers.ps1"
 &$info "Disclaimer: This script is provided 'as-is' without warranty. No responsibility is assumed by the author for any damage or data loss that may occur from its use. Always test before deploying in a production environment."
 
-# Display Output Options Menu
-&$section "Main Menu"
-&$confirm "Select an output option by number or press 'Q' to Quit:"
-&$confirm "1: Export assigned numbers to CSV"
-&$confirm "2: Export assigned numbers to Excel"
-&$confirm "3: Export to both CSV and Excel"
-&$confirm "4: Assign a phone number to a Teams user account"
-&$confirm "5: Remove a phone number from a Teams user account"
-Write-Host -ForegroundColor Green "Enter your choice: " -NoNewline
-$OutputChoice = Read-Host
-
-# Immediate exit if 'Q' or 'q' is selected
-if ($OutputChoice -eq 'Q' -or $OutputChoice -eq 'q') {
-    &$confirm "Operation cancelled. Exiting script."
-    exit
+function Main_Menu {
+    &$section "Main Menu"
+    &$confirm "Select an output option by number or press 'Q' to Quit:"
+    &$confirm "1: Export assigned numbers to CSV"
+    &$confirm "2: Export assigned numbers to Excel"
+    &$confirm "3: Export to both CSV and Excel"
+    &$confirm "4: Assign a phone number to a Teams user account"
+    &$confirm "5: Remove a phone number from a Teams user account"
+    Write-Host -ForegroundColor Green "Enter your choice: " -NoNewline
+    $OutputChoice = (Read-Host).ToUpper()
+    return $OutputChoice
 }
 
 # Check and install Microsoft Teams PowerShell module if necessary
@@ -52,12 +48,14 @@ function TeamsPowerMode {
         $module = Get-Module -Name "MicrosoftTeams" -ListAvailable
         if (-not $module) {
             &$info "Microsoft Teams PowerShell module is not installed. Attempting to install..."
+            &$console
             Install-Module -Name MicrosoftTeams -RequiredVersion 2.3.1 -Force -AllowClobber -Verbose | ForEach-Object { &$console $_ }
             Import-Module -Name MicrosoftTeams
             &$confirm "Microsoft Teams PowerShell module installed successfully."
         } else {
             &$confirm "Microsoft Teams PowerShell module is already installed."
         }
+        &$console
         Connect-MicrosoftTeams -Verbose | ForEach-Object { &$console $_ }
     } catch {
         &$logError "Failed to install or connect to the Microsoft Teams PowerShell module. Please check your permissions, internet connection, and credentials."
@@ -71,6 +69,7 @@ function ExcelPowerMode {
         $excelModule = Get-Module -Name "ImportExcel" -ListAvailable
         if (-not $excelModule) {
             &$info "ImportExcel module is not installed. Attempting to install..."
+            &$console
             Install-Module -Name ImportExcel -Force -Verbose | ForEach-Object { &$console $_ }
             &$confirm "ImportExcel module installed successfully."
         } else {
@@ -127,8 +126,11 @@ function TeamsNumberTable {
             }
         }
     }
-
-    return $Array1  # Ensure this data is returned
+    # Return both $Array1 and $FilePath as an object
+    return [PSCustomObject]@{
+        Array = $Array1
+        Path = $FilePath
+    }
 }
 
 
@@ -172,6 +174,7 @@ function Remove-PhoneNumber {
 
     try {
         $identity = Read-Host "Enter the user's email from which to remove the phone number (e.g., user@domain.com): "
+        &$console
         Remove-CsPhoneNumberAssignment -Identity $identity -RemoveAll -Verbose | ForEach-Object { &$console $_ }
         &$confirm "All phone numbers have been successfully removed from $identity."
     } catch {
@@ -179,41 +182,65 @@ function Remove-PhoneNumber {
     }
 }
 
-# Settings for output handling based on user choice
-switch ($OutputChoice) {
-    '1' {
-        TeamsPowerMode
-        $Array1 = TeamsNumberTable
-        $CSVPath = $FilePath + ".csv"
-        $Array1 | Export-Csv -Path $CSVPath -NoTypeInformation
-        &$confirm "CSV file has been saved to $CSVPath."
-    }
-    '2' {
-        TeamsPowerMode
-        ExcelPowerMode
-        $Array1 = TeamsNumberTable
-        $ExcelPath = $FilePath + ".xlsx"
-        $Array1 | Export-Excel -Path $ExcelPath -AutoSize -TableName "TeamsNumbers" -Show
-        &$confirm "Excel file has been saved to $ExcelPath."
-    }
-    '3' {
-        TeamsPowerMode
-        ExcelPowerMode
-        $Array1 = TeamsNumberTable
-        $CSVPath = $FilePath + ".csv"
-        $ExcelPath = $FilePath + ".xlsx"
-        $Array1 | Export-Csv -Path $CSVPath -NoTypeInformation
-        $Array1 | Export-Excel -Path $ExcelPath -AutoSize -TableName "TeamsNumbers" -Show
-        &$confirm "Both CSV and Excel files have been saved to $FilePath."
-    }
-    '4' {
-        Assign-PhoneNumber
-    }
-    '5' {
-        Remove-PhoneNumber
-    }
-    default {
-        &$logError "Invalid choice. Please restart the script and select a valid option."
-        exit
-    }
+function Format-PathDisplay($path) {
+    # Convert path to a more readable format directly
+    $formattedPath = $path -replace '\\\\', '\'
+    return $formattedPath
 }
+
+do {
+    $OutputChoice = Main_Menu
+
+    switch ($OutputChoice) {
+        '1' {
+            TeamsPowerMode
+            $result = TeamsNumberTable
+            $Array1 = $result.Array
+            $CSVPath = $result.Path + ".csv"
+            $Array1 | Export-Csv -Path $CSVPath -NoTypeInformation
+            $displayPath = Format-PathDisplay $CSVPath
+            &$confirm "CSV file has been saved to $displayPath"
+        }
+        '2' {
+            TeamsPowerMode
+            ExcelPowerMode
+            $result = TeamsNumberTable
+            $Array1 = $result.Array
+            $ExcelPath = $result.Path + ".xlsx"
+            $Array1 | Export-Excel -Path $ExcelPath -AutoSize -TableName "TeamsNumbers" -Show
+            $displayPath = Format-PathDisplay $ExcelPath
+            &$confirm "Excel file has been saved to $displayPath"
+        }
+        '3' {
+            TeamsPowerMode
+            ExcelPowerMode
+            $result = TeamsNumberTable
+            $Array1 = $result.Array
+            $CSVPath = $result.Path + ".csv"
+            $ExcelPath = $result.Path + ".xlsx"
+            $Array1 | Export-Csv -Path $CSVPath -NoTypeInformation
+            $Array1 | Export-Excel -Path $ExcelPath -AutoSize -TableName "TeamsNumbers" -Show
+            $displayCSVPath = Format-PathDisplay $CSVPath
+            &$confirm "Both CSV and Excel files have been saved to $displayCSVPath"
+        }
+        '4' {
+            Assign-PhoneNumber
+        }
+        '5' {
+            Remove-PhoneNumber
+        }
+        'Q' {
+            &$info "Exiting Script..."
+            exit
+        }
+        default {
+            &$logError "Invalid choice. Please restart the script and select a valid option."
+            exit
+        }
+    }
+    if ($OutputChoice.ToUpper() -ne 'Q') {
+            Write-Host "Press 'Y' to return to the main menu or 'Q' to quit:" -NoNewline
+            $continue = Read-Host
+        }
+} while ($continue.ToUpper() -eq 'Y')
+
