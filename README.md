@@ -32,7 +32,7 @@ Clone this repository to your local machine using Git:
 ### Usage
 Running TeamsAssignNumbers.ps1
 Navigate to the directory containing the script and run:
-  ```powershell
+```powershell
   .\TeamsAssignNumbers.ps1
 ```
 
@@ -41,11 +41,28 @@ Choose the desired output format or the option to assign phone numbers via the i
 
 Running Cache_CookieClearer.ps1
 Ensure you have administrative rights. Navigate to the script's directory and execute:
-  ```powershell
+```powershell
   .\Cache_CookieClearer.ps1
 ```
 
 Follow the on-screen prompts to select specific cleaning tasks.
+
+### Script Menu for Cache_CookieClearer.ps1
+This script includes a menu that allows the user to select specific operations:
+
+ ```powershell
+   1. Deep Cache Clearing - Clears system and application caches.
+   2. User Session Management - Logs off all users except the current. (Recommended)
+   3. Delete user profile from windows device
+   4. Common Program Cache Cleaning - Clears cache from browsers and more.
+   5. Disk Cleanup - Cleans temporary files and updates.
+   6. OS Image Repair - Runs DISM and SFC to repair system files.
+   7. Disk Optimization - Optimizes HDDs and SSDs.
+   8. DNS Cache Flush - Clears DNS cache to resolve network issues.
+   9. Disk Check and Restart - Intensive scan and repair. WARNING: Restarts immediately!
+ ```
+
+Each option is designed to perform specific tasks efficiently and is explained during the script's execution.
 
 ## Contributing
 Contributions are welcome. Please fork the repository and submit pull requests with any enhancements, bug fixes, or improvements.

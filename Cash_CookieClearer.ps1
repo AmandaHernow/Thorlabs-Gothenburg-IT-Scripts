@@ -14,8 +14,8 @@ $console = { param([string]$text) Write-Host -ForegroundColor Cyan $text }
 Write-Host -ForegroundColor Blue "---------------------Developed by Amanda Hernow - Thorlabs Sweden AB---------------------"
 &$confirm "Use: PowerShell script to be executed remotely on production PC using PSexec, scheduled task, or run from autofire HID device."
 &$confirm "Program Description: Automates clean disk, clearing cache and cookies on all user accounts on the targeted PC, performs optimization and defragmentations on hard drive"
-&$confirm "Developer: Amanda Hernow, Thorlabs Sweden AB - 22-042024"
-&$confirm "Version: 2.0"
+&$confirm "Developer: Amanda Hernow, Thorlabs Sweden AB"
+&$confirm "Version: 2.1 Updated: 08-05-2024"
 Write-Host -ForegroundColor Blue "-------------------------------PowerShell Script - PC Clean Up---------------------------"
 
 # Change Log and Coming Soon Section
@@ -29,7 +29,8 @@ V.1.0: Beta - Added hard drive type check and implemented defragmentation for HD
 V.1.1: Beta - Improved user interface feedback and scripting verbosity for better clarity during operations.
 V.1.2: Beta - Enhanced error handling mechanisms and added dynamic execution paths based on system state.
 v.1.3: Beta - Implemented automated disk cleanup task
-v.2.0: Developed switch menu for dynamic script interactions."
+v.2.0: Developed switch menu for dynamic script interactions.
+v.2.1: Added function to remove userprofile from windows device."
 &$info "COMING_SOON:
 1. Development of a switch menu for Program picker to clean common program files only
 2. Deciding on execution methods: scheduled tasks, autofire HID devices, or through PSexec remotely.
@@ -40,16 +41,17 @@ v.2.0: Developed switch menu for dynamic script interactions."
 function Show-Menu {
     param ([string]$Title = 'Computer Clean Up Menu')
     Clear-Host
-    & $section $Title
-    & $confirm "1: Deep Cache Clearing - Clears system and application caches."
-    & $confirm "2: User Session Management - Logs off all users except the current. (Recommended)"
-    & $confirm "3: Common Program Cache Cleaning - Clears cache from browsers and more."
-    & $confirm "4: Disk Cleanup - Cleans temporary files and updates."
-    & $confirm "5: OS Image Repair - Runs DISM and SFC to repair system files."
-    & $confirm "6: Disk Optimization - Optimizes HDDs and SSDs."
-    & $confirm "7: DNS Cache Flush - Clears DNS cache to resolve network issues."
-    & $confirm "8: Disk Check and Restart - Intensive scan and repair. WARNING: Restarts immediately!"
-    & $confirm "Q: Quit - Exit the menu and end the session."
+    &$section $Title
+    &$confirm "1: Deep Cache Clearing - Clears system and application caches."
+    &$confirm "2: User Session Management - Logs off all users except the current. (Recommended)"
+    &$confirm "3: Delete user profile from windows device"
+    &$confirm "4: Common Program Cache Cleaning - Clears cache from browsers and more."
+    &$confirm "5: Disk Cleanup - Cleans temporary files and updates."
+    &$confirm "6: OS Image Repair - Runs DISM and SFC to repair system files."
+    &$confirm "7: Disk Optimization - Optimizes HDDs and SSDs."
+    &$confirm "8: DNS Cache Flush - Clears DNS cache to resolve network issues."
+    &$confirm "9: Disk Check and Restart - Intensive scan and repair. WARNING: Restarts immediately!"
+    &$confirm "Q: Quit - Exit the menu and end the session."
 }
 
 function Select-Option {
@@ -58,12 +60,13 @@ function Select-Option {
     switch ($userChoice) {
         '1' { DeepCacheClearing }
         '2' { LogOffAllUsersExceptCurrent }
-        '3' { ClearCommonProgramCache }
-        '4' { PerformDiskCleanup }
-        '5' { RepairOSImage }
-        '6' { OptimizeDisks }
-        '7' { FlushDNSCache }
-        '8' { Run-ChkdskAndRestart }
+        '3' { DeleteUserProfile }
+        '4' { ClearCommonProgramCache }
+        '5' { PerformDiskCleanup }
+        '6' { RepairOSImage }
+        '7' { OptimizeDisks }
+        '8' { FlushDNSCache }
+        '9' { Run-ChkdskAndRestart }
         'Q' {
             &$confirm "Exiting..."
             exit
@@ -77,9 +80,20 @@ function Select-Option {
 }
 
 function DeepCacheClearing {
-    &$confirm "Opening Deep Cache Clearing..."
     Clear-Host
+    &$info "Opening Deep Cache Clearing..."
     &$section "SECTION 1: Deep Cache Clearing"
+
+    # Warning and confirmation
+    &$info "WARNING: This function aims to comprehensively clean cache files across the system and software directories."
+    &$info "Press 'Y' to proceed or any other key to return to the main menu. Proceed with caution."
+    &$confirm "Do you want to proceed? (Y/N): "
+    $userInput = Read-Host
+    if ($userInput.ToUpper() -ne 'Y') {
+        &$info "Operation cancelled by user. Returning to main menu..."
+        Select-Option
+        return
+    }
 
     # Initial setup and backup directory check
     $rootPath = "C:\"
@@ -100,57 +114,94 @@ function DeepCacheClearing {
     $logPath = Join-Path -Path $backupRoot -ChildPath "$($date).log"
     New-Item -Path $logPath -ItemType File -Force | Out-Null
 
-    # Define excluded extensions
+    # Define excluded extensions and directories to skip
     $excludedExtensions = @(
-        ".config", ".ini", ".db", ".sqlite", ".exe", ".dll", ".dat", ".bin", ".lock", ".log", ".LOG1", ".LOG2", ".xml", ".json", ".bak", ".tmp",
-        ".old", ".backup", ".ps1", ".sh", ".bat", ".cmd", ".cert", ".pfx", ".key", ".rb", ".py", ".ldf", ".mdb", ".accdb",
-        ".ost", ".pst", ".tiff", ".tif", ".mht", ".mhtml", ".gadget", ".iso", ".vmdk", ".vmx", ".ova", ".ovf", ".vdi",
-        ".vhdx", ".qcow", ".qcow2", ".aspx", ".php", ".jsp", ".class", ".jar", ".war", ".properties", ".license", ".fla",
-        ".swf", ".lnk", ".sys", ".cpl", ".msc", ".cab", ".msi", ".msp", ".com", ".scr", ".htaccess", ".gitignore", ".npmrc",
-        ".yaml", ".yml", ".csv", ".tar", ".gz", ".zip", ".7z", ".rar", ".vbs", ".ts", ".js", ".jsx", ".tsx", ".xlam", ".xls",
-        ".xlsx", ".xlsm", ".ppt", ".pptx", ".doc", ".docx", ".pdf", ".epub", ".sdf", ".mdf", ".hdf", ".ndf", ".cs", ".cpp",
-        ".c", ".h", ".hpp", ".java", ".kt", ".swift", ".go", ".rb", ".pl", ".pm", ".scala", ".groovy", ".sql", ".rdl", ".rds",
-        ".sln", ".csproj", ".vbproj", ".cppproj", ".swiftproj", ".xcodeproj", ".git", ".hg", ".svn", ".bak", ".tmp", ".md",
-        ".markdown", ".r", ".f#", ".dtsx", ".dtsConfig", ".rdlc", ".resx", ".config", ".manifest", ".ml", ".pyc", ".obj",
-        ".o", ".a", ".lib", ".so", ".dylib", ".img", ".dds", ".xcf", ".psd", ".ai", ".indd", ".flp", ".ses", ".prproj", ".aep",
-        ".vpk", ".pak", ".bik", ".cur", ".ani", ".theme", ".themepack", ".deskthemepack", ".dll", ".drv", ".sys", ".css", ".html"
+    ".7z", ".7Z", ".a", ".A", ".accdb", ".ACCDB", ".aep", ".AEP", ".ai", ".AI", ".ani", ".ANI", ".aspx", ".ASPX", 
+    ".bak", ".BAK", ".bat", ".BAT", ".bin", ".BIN", ".BLOB", ".blob", ".blog", ".BLOG", ".bik", ".BIK", ".cdxml", 
+    ".CDXML", ".cert", ".CERT", ".chk", ".CHK", ".class", ".CLASS", ".cmd", ".CMD", ".com", ".COM", ".conf", ".CONF", 
+    ".config", ".CONFIG", ".cpp", ".CPP", ".cppproj", ".CPPPROJ", ".cpl", ".CPL", ".cs", ".CS", ".csproj", ".CSPROJ", 
+    ".csv", ".CSV", ".cur", ".CUR", ".dat", ".DAT", ".dat64", ".DAT64", ".data", ".DATA", ".db", ".DB", ".dds", ".DDS", 
+    ".deskthemepack", ".DESKTHEMEPACK", ".dll", ".DLL", ".doc", ".DOC", ".docx", ".DOCX", ".dtsx", ".DTSX", ".dtsConfig", 
+    ".DTSCONFIG", ".dylib", ".DYLIB", ".epub", ".EPUB", ".etl", ".ETL", ".exe", ".EXE", ".f#", ".F#", ".fingerprint", 
+    ".FINGERPRINT", ".fla", ".FLA", ".flp", ".FLP", ".gadget", ".GADGET", ".git", ".GIT", ".gitignore", ".GITIGNORE", 
+    ".go", ".GO", ".groovy", ".GROOVY", ".gz", ".GZ", ".h", ".H", ".hg", ".HG", ".hdf", ".HDF", ".htaccess", ".HTACCESS", 
+    ".hpp", ".HPP", ".ico", ".ICO", ".IMG", ".img", ".indd", ".INDD", ".ini", ".INI", ".inUse", ".INUSE", ".iso", ".ISO", ".idx", 
+    ".IDX", ".java", ".JAVA", ".jar", ".JAR", ".jsp", ".JSP", ".js", ".JS", ".jsx", ".JSX", ".json", ".JSON", ".jrs", ".JRS", 
+    ".key", ".KEY", ".kt", ".KT", ".ldf", ".LDF", ".license", ".LICENSE", ".lib", ".LIB", ".LINK", ".lnk", ".LNK", ".lock", ".LOCK", 
+    ".log", ".LOG", ".LOG1", ".log1", ".LOG2", ".log2", ".mht", ".MHT", ".mhtml", ".MHTML", ".map", ".MAP", ".manifest", ".MANIFEST", 
+    ".md", ".MD", ".markdown", ".MARKDOWN", ".mdb", ".MDB", ".mdf", ".MDF", ".ml", ".ML", ".msc", ".MSC", ".msi", ".MSI", ".msp", 
+    ".MSP", ".mpp", ".MPP", ".ndf", ".NDF", ".npmrc", ".NPMRC", ".obj", ".OBJ", ".o", ".O", ".old", ".OLD", ".ost", ".OST", ".ova", ".OVA", 
+    ".ovf", ".OVF", ".old", ".OLD", ".pfx", ".PFX", ".pak", ".PAK", ".php", ".PHP", ".phf", ".PHF", ".pma", ".PMA", ".pl", ".PL", 
+    ".pm", ".PM", ".PMA", ".pma", ".png", ".PNG", ".pdf", ".PDF", ".ppt", ".PPT", ".pptx", ".PPTX", ".properties", ".PROPERTIES", 
+    ".prproj", ".PRPROJ", ".ps1", ".PS1", ".psd", ".PSD", ".psd1", ".PSD1", ".ps1xml", ".PS1XML", ".psm1", ".PSM1", ".psp", ".PSP", 
+    ".py", ".PY", ".pyc", ".PYC", ".r", ".R", ".rar", ".RAR", ".rdl", ".RDL", ".rdlc", ".RDLC", ".rel", ".REL", ".resx", ".RESX", 
+    ".rb", ".RB", ".rds", ".RDS", ".sdf", ".SDF", ".scala", ".SCALA", ".sch", ".SCH", ".scr", ".SCR", ".ses", ".SES", ".sh", ".SH", 
+    ".sln", ".SLN", ".so", ".SO", ".sql", ".SQL", ".sqlite", ".SQLITE", ".sql", ".SQL", ".ssh", ".SSH", ".swift", ".SWIFT", ".swiftproj", ".SWIFTPROJ", 
+    ".svn", ".SVN", ".sys", ".SYS", ".tar", ".TAR", ".tbres", ".TBRES", ".theme", ".THEME", ".themepack", ".THEMEPACK", ".tiff", ".TIFF", 
+    ".tif", ".TIF", ".ts", ".TS", ".tsx", ".TSX", ".v2", ".V2", ".val", ".VAL", ".vbproj", ".VBPROJ", ".vbs", ".VBS", 
+    ".vdi", ".VDI", ".vmdk", ".VMDK", ".vmx", ".VMX", ".vpk", ".VPK", ".vhdx", ".VHDX", ".war", ".WAR", ".x3d", ".X3D", ".xcodeproj", ".XCODEPROJ", 
+    ".xcf", ".XCF", ".xml", ".XML", ".yaml", ".YAML", ".yml", ".YML", ".zip", ".ZIP", ".z", ".Z"
+    )
+    $excludedDirectories = @(
+    "C:\Windows\System32\LogFiles",
+    "C:\cacheBackup",
+    "C:\Windows\System32\config",
+    "C:\Program Files\Common Files\System",
+    "C:\ProgramData\Microsoft\Diagnosis",
+    "C:\Program Files (x86)\Common Files\Adobe\ARM",
+    "C:\Program Files (x86)\Microsoft Office\Office16\XLSTART",
+    "C:\Windows\SoftwareDistribution\DataStore",
+    "C:\Users\ahernow\Thorlabs-Gothenburg-IT-Scripts",
+    "C:\Users\ahernow\Thorlabs-Gothenburg-IT-Scripts - Copy"
     )
 
-    &$info "Scanning for cache directories and files..."
-    $cacheDirectories = Get-ChildItem -Path $rootPath -Directory -Recurse -Force -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -like "*cache*" }
+    &$info "Scanning for cache directories and files..." | Out-File -Append -FilePath $logPath
+    $allDirectories = Get-ChildItem -Path $rootPath -Directory -Recurse -Force -ErrorAction SilentlyContinue -Verbose |
+        Where-Object { $_.FullName -like "*cache*" -and $excludedDirectories -notcontains $_.FullName }
 
-    foreach ($dir in $cacheDirectories) {
-        $files = Get-ChildItem -Path $dir.FullName -File -Recurse -Force -ErrorAction SilentlyContinue |
-            Where-Object { $_.Extension -notin $excludedExtensions }
+    foreach ($dir in $allDirectories) {
+        $files = Get-ChildItem -Path $dir.FullName -File -Recurse -Force -ErrorAction SilentlyContinue -Verbose |
+            Where-Object {
+                $_.Extension -notin $excludedExtensions -and
+                -not $_.Attributes.ToString().Split(',').Contains('System')
+            }
 
         foreach ($file in $files) {
-            try {
-                $destinationFile = Join-Path -Path $backupDir -ChildPath $file.Name
-                Move-Item -Path $file.FullName -Destination $destinationFile -Force
-                $filesMoved += @{ "OriginalPath"=$file.FullName; "BackupPath"=$destinationFile; "OriginalName"=$file.Name }
-                "$($file.FullName) moved to $destinationFile" | Out-File -Append -FilePath $logPath
-            } catch {
-                "$($file.FullName) could not be moved: $_" | Out-File -Append -FilePath $logPath
-                continue
-            }
+            $destinationFile = Join-Path -Path $backupDir -ChildPath $file.Name
+            Robocopy $dir.FullName $backupDir $file.Name /MOV /NFL /NDL /NJH /NJS
+            $filesMoved += @{ "OriginalPath"=$file.FullName; "BackupPath"=$destinationFile; "OriginalName"=$file.Name }
+            "$($file.FullName) moved to $destinationFile" | Out-File -Append -FilePath $logPath
         }
     }
 
-    &$info "Compressing backup..."
-    try {
-        $compressedFile = "$backupDir.zip"
-        Compress-Archive -Path $backupDir -DestinationPath $compressedFile -Force
-        Remove-Item -Path $backupDir -Recurse -Force
-
-        "Backup and compression complete. Files Moved: $($filesMoved.Count)." | Out-File -Append -FilePath $logPath
-    } catch {
-        # Move files back if compression fails
-        foreach ($file in $filesMoved) {
-            Move-Item -Path $file.BackupPath -Destination $file.OriginalPath -Force
-            "Failed to compress; $($file.BackupPath) moved back to $($file.OriginalPath) as $($file.OriginalName)" | Out-File -Append -FilePath $logPath
+    &$info "Compressing backup..." | Out-File -Append -FilePath $logPath
+    while ($true) {
+        try {
+            $compressedFile = "$backupDir.zip"
+            Compress-Archive -Path $backupDir -DestinationPath $compressedFile -Force
+            Remove-Item -Path $backupDir -Recurse -Force
+            "Backup and compression complete. Files Moved: $($filesMoved.Count)." | Out-File -Append -FilePath $logPath
+            break
+        } catch {
+            &$logError "Error during compression: $_"  # Log the specific compression error
+            "Compression attempt failed: $_" | Out-File -Append -FilePath $logPath
+            # Move all files back to their original locations and retry compression
+            $filesInBackupDir = Get-ChildItem -Path $backupDir -Recurse -File
+            foreach ($fileInBackupDir in $filesInBackupDir) {
+                # Try to move the file back to its original location
+                $originalFileDetails = $filesMoved | Where-Object { $_.BackupPath -eq $fileInBackupDir.FullName }
+                if ($originalFileDetails) {
+                    Move-Item -Path $fileInBackupDir.FullName -Destination $originalFileDetails.OriginalPath -Force
+                    "Moved $($fileInBackupDir.FullName) back to $($originalFileDetails.OriginalPath) due to compression error" | Out-File -Append -FilePath $logPath
+                    # Remove this file from the filesMoved list as it's no longer in the backup directory
+                    $filesMoved = $filesMoved | Where-Object { $_.BackupPath -ne $fileInBackupDir.FullName }
+                }
+            }
+            if (-not (Get-ChildItem -Path $backupDir -File)) {
+                &$info "No files left to compress. Exiting compression loop." | Out-File -Append -FilePath $logPath
+                break
+            }
         }
-        &$logError "Error during compression: $_"
     }
 
     $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
@@ -160,8 +211,6 @@ function DeepCacheClearing {
         &$confirm "Exiting..."
     }
 }
-
-
 
 function LogOffAllUsersExceptCurrent {
     Clear-Host
@@ -212,9 +261,62 @@ function LogOffAllUsersExceptCurrent {
     ""
 }
 
+function DeleteUserProfile {
+    &$info "Opening script to delete user profile from Windows device..."
+    &$section "SECTION 3: Deleting User Profiles"
+
+    do {
+        $profiles = Get-WmiObject -Class Win32_UserProfile | Where-Object { !$_.Special }
+        $i = 0
+        $profiles | ForEach-Object {
+            $i++
+            &$confirm "$i. $($_.LocalPath)"
+        }
+
+        &$info "Enter the number of the profile you want to remove or 'Q' to quit:"
+        $selectedNumber = Read-Host
+
+        if ($selectedNumber.ToUpper() -eq 'Q') {
+            return
+        }
+
+        if ($selectedNumber -match '^\d+$' -and [int]$selectedNumber -gt 0 -and [int]$selectedNumber -le $i) {
+            $selectedProfile = $profiles[[int]$selectedNumber - 1]
+            &$info "Are you sure you want to remove the profile at $($selectedProfile.LocalPath)? (Y/N): "
+            $confirm = (Read-Host).ToUpper()
+            if ($confirm -eq 'Y') {
+                try {
+                    $verboseOutput = $selectedProfile | Remove-WmiObject -Verbose 4>&1
+                    &$console $verboseOutput
+                    &$confirm "Profile removed successfully."
+                    break
+                } catch {
+                    &$logError "Failed to remove profile: $_"
+                }
+            } else {
+                &$info "Profile removal canceled."
+            }
+        } else {
+            &$logError "Invalid input. Please enter a valid number corresponding to a user profile."
+        }
+
+        &$info "Do you want to try again? (Y/N):"
+        $tryAgain = (Read-Host).ToUpper()
+    } while ($tryAgain -eq 'Y')
+
+    &$info "Would you like to (1) remove another profile, (2) return to the main menu, or (3) quit?"
+    $userDecision = Read-Host "Enter your choice (1, 2, or 3):"
+    switch ($userDecision) {
+        '1' { DeleteUserProfile }
+        '2' { Select-Option }
+        '3' { &$confirm "Exiting..." ; exit }
+        default { &$logError "Invalid selection, returning to main menu." ; Select-Option }
+    }
+}
+
 function ClearCommonProgramCache {
 
-    &$section "SECTION 3: Clear Cache From Common Windows Programs"
+    &$section "SECTION 4: Clear Cache From Common Windows Programs"
 
     &$info "Listing Device Users"
     # Write Information to the screen
@@ -399,7 +501,7 @@ function ClearCommonProgramCache {
 
 function PerformDiskCleanup {
     &$confirm "Opening disk cleanup..."
-    &$section "SECTION 4: Disk Cleanup"
+    &$section "SECTION 5: Disk Cleanup"
 
     # Clearing any previous CleanMgr.exe automation settings to ensure a clean state
     &$info "Clearing previous automation settings..."
@@ -458,7 +560,7 @@ function PerformDiskCleanup {
 
 function RepairOSImage {
     Clear-Host
-    &$section "SECTION 5: Repair OS-Image"
+    &$section "SECTION 6: Repair OS-Image"
 
     &$info "Starting OS-Image repair task..."
     Write-Host -ForegroundColor Yellow "Checking and Repairing OS-Image..."
@@ -476,7 +578,7 @@ function RepairOSImage {
 
 function OptimizeDisks {
     Clear-Host
-    &$section "SECTION 6: Disk Defragmentation, Optimization, and TRIM for SSDs"
+    &$section "SECTION 7: Disk Defragmentation, Optimization, and TRIM for SSDs"
 
     &$info "Collecting Disk type Information..."
     $disks = Get-PhysicalDisk | Select-Object DeviceID, MediaType
@@ -522,7 +624,7 @@ function OptimizeDisks {
 
 
 function FlushDNSCache {
-    &$section "SECTION 7: Clearing DNS Client Cache"
+    &$section "SECTION 8: Clearing DNS Client Cache"
 
     &$info "Starting DNS Client cache clean up task..."
     &$info "Flushing DNS..."
@@ -533,6 +635,8 @@ function FlushDNSCache {
 
 
 function Run-ChkdskAndRestart {
+
+    &$section "SECTION 9: Disk Check and Restart"
     # Function to run chkdsk and handle the prompt automatically, then restart
     &$info "Scheduling disk check and preparing to restart..."
 
