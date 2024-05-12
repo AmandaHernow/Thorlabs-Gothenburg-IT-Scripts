@@ -26,7 +26,7 @@ Before running these scripts, ensure that the Microsoft Teams PowerShell module 
 ### Installation
 Clone this repository to your local machine using Git:
 ```powershell
-  git clone https://github.com/yourgithubprofile/Thorlabs-Gothenburg-IT-Scripts.git
+  git clone https://github.com/AmandaHernow/Thorlabs-Gothenburg-IT-Scripts.git
 ```
 
 ### Usage
