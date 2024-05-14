@@ -8,6 +8,8 @@ Welcome to the Thorlabs Gothenburg IT Scripts repository. This repository houses
 
 2. **Cache_CookieClearer.ps1** - Automates the cleaning of disk space, cache, and cookies on all user accounts on the targeted PC. This script is designed for execution on production PCs via PSExec, scheduled tasks, or autofire HID devices.
 
+3. **ExchangeUserPhotoRetriever.ps1** - Connects to Exchange Online to download and save user profile photos to a specified directory. This script ensures secure authentication, checks for necessary administrative permissions, and handles batch operations for multiple user inputs. Ideal for administrators needing to manage or archive user profile images.
+
 ## Usage Instructions and Precautions
 
 Both scripts are experimental and should be used with caution. They are intended for IT professionals familiar with automated system modifications.
@@ -46,6 +48,12 @@ Ensure you have administrative rights. Navigate to the script's directory and ex
 ```
 
 Follow the on-screen prompts to select specific cleaning tasks.
+
+Running ExchangeUserPhotoRetriever.ps1:
+Ensure you have Exchange Administrator privileges configured. Navigate to the script's directory and run:
+```powershell
+  .\ExchangeUserPhotoRetriever.ps1
+```
 
 ### Script Menu for Cache_CookieClearer.ps1
 This script includes a menu that allows the user to select specific operations:
