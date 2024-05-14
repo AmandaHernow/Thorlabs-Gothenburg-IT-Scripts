@@ -32,6 +32,9 @@ Clone this repository to your local machine using Git:
 ```
 
 ### Usage
+
+## OBS! You must PIM: Teams Administrator in Azure before assigning number to teams account.
+
 Running TeamsAssignNumbers.ps1
 Navigate to the directory containing the script and run:
 ```powershell
@@ -39,7 +42,8 @@ Navigate to the directory containing the script and run:
 ```
 
 Choose the desired output format or the option to assign phone numbers via the interactive menu.
-## OBS! You must PIM: Teams Administrator in Azure before assigning number to teams account.
+
+## OBS! You must PIM: Exchange Administrator in Azure to fetch user photos.
 
 Running ExchangeUserPhotoRetriever.ps1:
 Ensure you have Exchange Administrator privileges configured. Navigate to the script's directory and run:
@@ -48,7 +52,6 @@ Ensure you have Exchange Administrator privileges configured. Navigate to the sc
 ```
 
 Follow the instructions to retrieve user photos by entering their email addresses. Fetch several photos by separating the email addresses with a comma.
-## OBS! You must PIM: Exchange Administrator in Azure to fetch user photos.
 
 Running Cache_CookieClearer.ps1
 Ensure you have administrative rights. Navigate to the script's directory and execute:
