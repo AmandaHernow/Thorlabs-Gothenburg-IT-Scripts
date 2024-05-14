@@ -3,8 +3,20 @@ Write-Host -ForegroundColor Blue "-------------------------------Developed by Am
 Write-Host -ForegroundColor Green "Use: PowerShell script for querying and saving Exchange Online user photos."
 Write-Host -ForegroundColor Green "Program Description: Queries Exchange Online to retrieve user photos and save them locally. Includes error handling and prompts for necessary permissions."
 Write-Host -ForegroundColor Green "Developer: Amanda Hernow, Thorlabs Sweden AB"
-Write-Host -ForegroundColor Green "Version: 1.0 - Updated 2024-05-14"
+Write-Host -ForegroundColor Green "Version: 1.2 - Updated 2024-05-14"
 Write-Host -ForegroundColor Blue "-------------------------------PowerShell Script - Retrieve & Save User Photos-------------------------------"
+
+Write-Host -ForegroundColor Green "CHANGE_LOG:
+V. 1.1: Added functionality to save the photo files with the username part of the email address.
+V. 1.2: Added prompt to make sure user have activated Exchange Admin rights."
+
+# Prompt user to confirm they have activated the necessary role
+Write-Host -ForegroundColor Yellow "Have you activated your Exchange Administrator role in Azure PIM? (Y/N)"
+$userConfirmation = Read-Host
+if ($userConfirmation.ToUpper() -ne 'Y') {
+    Write-Host -ForegroundColor Red "Script execution stopped. Please activate your Exchange Administrator role and try again."
+    return
+}
 
 # Function to check and create a specific folder
 function Ensure-FolderExists {
@@ -41,9 +53,15 @@ function Get-AndSaveUserPhoto {
         [string]$FolderPath
     )
     try {
+        $usernamePart = $UserEmail.Split('@')[0] # Extract the part before '@'
         $photo = Get-UserPhoto -Identity $UserEmail -ErrorAction Stop
         if ($photo.PictureData) {
-            $filePath = Join-Path -Path $FolderPath -ChildPath "$UserEmail.jpg"
+            $fileExtension = switch ($photo.ContentType) {
+                "image/jpeg" { "jpg" }
+                "image/png"  { "png" }
+                Default { "jpg" } # Default to jpg if another format is not handled
+            }
+            $filePath = Join-Path -Path $FolderPath -ChildPath "$usernamePart.$fileExtension"
             $photo.PictureData | Set-Content -Path $filePath -Encoding Byte
             Write-Host -ForegroundColor Green "Photo successfully downloaded to $filePath"
         } else {
