@@ -85,8 +85,7 @@ function DeepCacheClearing {
     # Warning and confirmation
     &$info "WARNING: This function aims to comprehensively clean cache files across the system and software directories."
     &$info "Press 'Y' to proceed or any other key to return to the main menu. Proceed with caution."
-    &$confirm "Do you want to proceed? (Y/N): "
-    $userInput = Read-Host
+    $userInput = Read-Host "Do you want to proceed? (Y/N):"
     if ($userInput.ToUpper() -ne 'Y') {
         &$info "Operation cancelled by user. Returning to main menu..."
         Select-Option
@@ -97,10 +96,11 @@ function DeepCacheClearing {
     $rootPath = "C:\"
     $backupRoot = "C:\cacheBackup"
     $filesMoved = @()
-    &$info "Exporting the list of users to c:\users\$env:USERNAME\users.csv..."
-    # List the users in c:\users and export to the local profile for calling later
-    dir C:\Users | select Name | Export-Csv -Path C:\users\$env:USERNAME\users.csv -NoTypeInformation
-    $list=Test-Path C:\users\$env:USERNAME\users.csv
+    &$info "Exporting the list of users to C:\users\$env:USERNAME\users.csv..."
+    
+    # List the users in C:\Users and export to the local profile for calling later
+    Get-ChildItem -Path C:\Users | Select-Object Name | Export-Csv -Path "C:\users\$env:USERNAME\users.csv" -NoTypeInformation
+    $list = Test-Path "C:\users\$env:USERNAME\users.csv"
     &$info "User List Saved..."
 
     # Ensure the backup root directory exists
@@ -119,46 +119,47 @@ function DeepCacheClearing {
 
     # Define excluded extensions and directories to skip
     $excludedExtensions = @(
-    ".7z", ".7Z", ".a", ".A", ".accdb", ".ACCDB", ".aep", ".AEP", ".ai", ".AI", ".ani", ".ANI", ".aspx", ".ASPX", 
-    ".bak", ".BAK", ".bat", ".BAT", ".bin", ".BIN", ".BLOB", ".blob", ".blog", ".BLOG", ".bik", ".BIK", ".cdxml", 
-    ".CDXML", ".cert", ".CERT", ".chk", ".CHK", ".class", ".CLASS", ".cmd", ".CMD", ".com", ".COM", ".conf", ".CONF", 
-    ".config", ".CONFIG", ".cpp", ".CPP", ".cppproj", ".CPPPROJ", ".cpl", ".CPL", ".cs", ".CS", ".csproj", ".CSPROJ", 
-    ".csv", ".CSV", ".cur", ".CUR", ".dat", ".DAT", ".dat64", ".DAT64", ".data", ".DATA", ".db", ".DB", ".dds", ".DDS", 
-    ".deskthemepack", ".DESKTHEMEPACK", ".dll", ".DLL", ".doc", ".DOC", ".docx", ".DOCX", ".dtsx", ".DTSX", ".dtsConfig", 
-    ".DTSCONFIG", ".dylib", ".DYLIB", ".epub", ".EPUB", ".etl", ".ETL", ".exe", ".EXE", ".f#", ".F#", ".fingerprint", 
-    ".FINGERPRINT", ".fla", ".FLA", ".flp", ".FLP", ".gadget", ".GADGET", ".git", ".GIT", ".gitignore", ".GITIGNORE", 
-    ".go", ".GO", ".groovy", ".GROOVY", ".gz", ".GZ", ".h", ".H", ".hg", ".HG", ".hdf", ".HDF", ".htaccess", ".HTACCESS", 
-    ".hpp", ".HPP", ".ico", ".ICO", ".IMG", ".img", ".indd", ".INDD", ".ini", ".INI", ".inUse", ".INUSE", ".iso", ".ISO", ".idx", 
-    ".IDX", ".java", ".JAVA", ".jar", ".JAR", ".jsp", ".JSP", ".js", ".JS", ".jsx", ".JSX", ".json", ".JSON", ".jrs", ".JRS", 
-    ".key", ".KEY", ".kt", ".KT", ".ldf", ".LDF", ".license", ".LICENSE", ".lib", ".LIB", ".LINK", ".lnk", ".LNK", ".lock", ".LOCK", 
-    ".log", ".LOG", ".LOG1", ".log1", ".LOG2", ".log2", ".mht", ".MHT", ".mhtml", ".MHTML", ".map", ".MAP", ".manifest", ".MANIFEST", 
-    ".md", ".MD", ".markdown", ".MARKDOWN", ".mdb", ".MDB", ".mdf", ".MDF", ".ml", ".ML", ".msc", ".MSC", ".msi", ".MSI", ".msp", 
-    ".MSP", ".mpp", ".MPP", ".ndf", ".NDF", ".npmrc", ".NPMRC", ".obj", ".OBJ", ".o", ".O", ".old", ".OLD", ".ost", ".OST", ".ova", ".OVA", 
-    ".ovf", ".OVF", ".old", ".OLD", ".pfx", ".PFX", ".pak", ".PAK", ".php", ".PHP", ".phf", ".PHF", ".pma", ".PMA", ".pl", ".PL", 
-    ".pm", ".PM", ".PMA", ".pma", ".png", ".PNG", ".pdf", ".PDF", ".ppt", ".PPT", ".pptx", ".PPTX", ".properties", ".PROPERTIES", 
-    ".prproj", ".PRPROJ", ".ps1", ".PS1", ".psd", ".PSD", ".psd1", ".PSD1", ".ps1xml", ".PS1XML", ".psm1", ".PSM1", ".psp", ".PSP", 
-    ".py", ".PY", ".pyc", ".PYC", ".r", ".R", ".rar", ".RAR", ".rdl", ".RDL", ".rdlc", ".RDLC", ".rel", ".REL", ".resx", ".RESX", 
-    ".rb", ".RB", ".rds", ".RDS", ".sdf", ".SDF", ".scala", ".SCALA", ".sch", ".SCH", ".scr", ".SCR", ".ses", ".SES", ".sh", ".SH", 
-    ".sln", ".SLN", ".so", ".SO", ".sql", ".SQL", ".sqlite", ".SQLITE", ".sql", ".SQL", ".ssh", ".SSH", ".swift", ".SWIFT", ".swiftproj", ".SWIFTPROJ", 
-    ".svn", ".SVN", ".sys", ".SYS", ".tar", ".TAR", ".tbres", ".TBRES", ".theme", ".THEME", ".themepack", ".THEMEPACK", ".tiff", ".TIFF", 
-    ".tif", ".TIF", ".ts", ".TS", ".tsx", ".TSX", ".v2", ".V2", ".val", ".VAL", ".vbproj", ".VBPROJ", ".vbs", ".VBS", 
-    ".vdi", ".VDI", ".vmdk", ".VMDK", ".vmx", ".VMX", ".vpk", ".VPK", ".vhdx", ".VHDX", ".war", ".WAR", ".x3d", ".X3D", ".xcodeproj", ".XCODEPROJ", 
-    ".xcf", ".XCF", ".xml", ".XML", ".yaml", ".YAML", ".yml", ".YML", ".zip", ".ZIP", ".z", ".Z"
+        ".7z", ".7Z", ".a", ".A", ".accdb", ".ACCDB", ".aep", ".AEP", ".ai", ".AI", ".ani", ".ANI", ".aspx", ".ASPX", 
+        ".bak", ".BAK", ".bat", ".BAT", ".bin", ".BIN", ".BLOB", ".blob", ".blog", ".BLOG", ".bik", ".BIK", ".cdxml", 
+        ".CDXML", ".cert", ".CERT", ".chk", ".CHK", ".class", ".CLASS", ".cmd", ".CMD", ".com", ".COM", ".conf", ".CONF", 
+        ".config", ".CONFIG", ".cpp", ".CPP", ".cppproj", ".CPPPROJ", ".cpl", ".CPL", ".cs", ".CS", ".csproj", ".CSPROJ", 
+        ".csv", ".CSV", ".cur", ".CUR", ".dat", ".DAT", ".dat64", ".DAT64", ".data", ".DATA", ".db", ".DB", ".dds", ".DDS", 
+        ".deskthemepack", ".DESKTHEMEPACK", ".dll", ".DLL", ".doc", ".DOC", ".docx", ".DOCX", ".dtsx", ".DTSX", ".dtsConfig", 
+        ".DTSCONFIG", ".dylib", ".DYLIB", ".epub", ".EPUB", ".etl", ".ETL", ".exe", ".EXE", ".f#", ".F#", ".fingerprint", 
+        ".FINGERPRINT", ".fla", ".FLA", ".flp", ".FLP", ".gadget", ".GADGET", ".git", ".GIT", ".gitignore", ".GITIGNORE", 
+        ".go", ".GO", ".groovy", ".GROOVY", ".gz", ".GZ", ".h", ".H", ".hg", ".HG", ".hdf", ".HDF", ".htaccess", ".HTACCESS", 
+        ".hpp", ".HPP", ".ico", ".ICO", ".IMG", ".img", ".indd", ".INDD", ".ini", ".INI", ".inUse", ".INUSE", ".iso", ".ISO", ".idx", 
+        ".IDX", ".java", ".JAVA", ".jar", ".JAR", ".jsp", ".JSP", ".js", ".JS", ".jsx", ".JSX", ".json", ".JSON", ".jrs", ".JRS", 
+        ".key", ".KEY", ".kt", ".KT", ".ldf", ".LDF", ".license", ".LICENSE", ".lib", ".LIB", ".LINK", ".lnk", ".LNK", ".lock", ".LOCK", 
+        ".log", ".LOG", ".LOG1", ".log1", ".LOG2", ".log2", ".mht", ".MHT", ".mhtml", ".MHTML", ".map", ".MAP", ".manifest", ".MANIFEST", 
+        ".md", ".MD", ".markdown", ".MARKDOWN", ".mdb", ".MDB", ".mdf", ".MDF", ".ml", ".ML", ".msc", ".MSC", ".msi", ".MSI", ".msp", 
+        ".MSP", ".mpp", ".MPP", ".ndf", ".NDF", ".npmrc", ".NPMRC", ".obj", ".OBJ", ".o", ".O", ".old", ".OLD", ".ost", ".OST", ".ova", ".OVA", 
+        ".ovf", ".OVF", ".old", ".OLD", ".pfx", ".PFX", ".pak", ".PAK", ".php", ".PHP", ".phf", ".PHF", ".pma", ".PMA", ".pl", ".PL", 
+        ".pm", ".PM", ".PMA", ".pma", ".png", ".PNG", ".pdf", ".PDF", ".ppt", ".PPT", ".pptx", ".PPTX", ".properties", ".PROPERTIES", 
+        ".prproj", ".PRPROJ", ".ps1", ".PS1", ".psd", ".PSD", ".psd1", ".PSD1", ".ps1xml", ".PS1XML", ".psm1", ".PSM1", ".psp", ".PSP", 
+        ".py", ".PY", ".pyc", ".PYC", ".r", ".R", ".rar", ".RAR", ".rdl", ".RDL", ".rdlc", ".RDLC", ".rel", ".REL", ".resx", ".RESX", 
+        ".rb", ".RB", ".rds", ".RDS", ".sdf", ".SDF", ".scala", ".SCALA", ".sch", ".SCH", ".scr", ".SCR", ".ses", ".SES", ".sh", ".SH", 
+        ".sln", ".SLN", ".so", ".SO", ".sql", ".SQL", ".sqlite", ".SQLITE", ".sql", ".SQL", ".ssh", ".SSH", ".swift", ".SWIFT", ".swiftproj", ".SWIFTPROJ", 
+        ".svn", ".SVN", ".sys", ".SYS", ".tar", ".TAR", ".tbres", ".TBRES", ".theme", ".THEME", ".themepack", ".THEMEPACK", ".tiff", ".TIFF", 
+        ".tif", ".TIF", ".ts", ".TS", ".tsx", ".TSX", ".v2", ".V2", ".val", ".VAL", ".vbproj", ".VBPROJ", ".vbs", ".VBS", 
+        ".vdi", ".VDI", ".vmdk", ".VMDK", ".vmx", ".VMX", ".vpk", ".VPK", ".vhdx", ".VHDX", ".war", ".WAR", ".x3d", ".X3D", ".xcodeproj", ".XCODEPROJ", 
+        ".xcf", ".XCF", ".xml", ".XML", ".yaml", ".YAML", ".yml", ".YML", ".zip", ".ZIP", ".z", ".Z"
     )
     $excludedDirectories = @(
-    "C:\Windows\System32\LogFiles",
-    "C:\cacheBackup",
-    "C:\Windows\System32\config",
-    "C:\Program Files\Common Files\System",
-    "C:\ProgramData\Microsoft\Diagnosis",
-    "C:\Program Files (x86)\Common Files\Adobe\ARM",
-    "C:\Program Files (x86)\Microsoft Office\Office16\XLSTART",
-    "C:\Windows\SoftwareDistribution\DataStore",
-    "C:\Users\$env:USERNAME\Thorlabs-Gothenburg-IT-Scripts",
-    "C:\Users\$env:USERNAME\Thorlabs-Gothenburg-IT-Scripts - Copy"
+        "C:\Windows\System32\LogFiles",
+        "C:\cacheBackup",
+        "C:\Windows\System32\config",
+        "C:\Program Files\Common Files\System",
+        "C:\ProgramData\Microsoft\Diagnosis",
+        "C:\Program Files (x86)\Common Files\Adobe\ARM",
+        "C:\Program Files (x86)\Microsoft Office\Office16\XLSTART",
+        "C:\Windows\SoftwareDistribution\DataStore",
+        "C:\Users\$env:USERNAME\Thorlabs-Gothenburg-IT-Scripts",
+        "C:\Users\$env:USERNAME\Thorlabs-Gothenburg-IT-Scripts - Copy"
     )
 
-    &$info "Scanning for cache directories and files..." | Out-File -Append -FilePath $logPath
+    &$info "Scanning for cache directories and files..."
+    "Scanning for cache directories and files..." | Out-File -Append -FilePath $logPath
     $allDirectories = Get-ChildItem -Path $rootPath -Directory -Recurse -Force -ErrorAction SilentlyContinue -Verbose |
         Where-Object { $_.FullName -like "*cache*" -and $excludedDirectories -notcontains $_.FullName }
 
@@ -174,20 +175,23 @@ function DeepCacheClearing {
             Robocopy $dir.FullName $backupDir $file.Name /MOV /NFL /NDL /NJH /NJS
             $filesMoved += @{ "OriginalPath"=$file.FullName; "BackupPath"=$destinationFile; "OriginalName"=$file.Name }
             "$($file.FullName) moved to $destinationFile" | Out-File -Append -FilePath $logPath
+            &$info "$($file.FullName) moved to $destinationFile"
         }
     }
 
-    &$info "Compressing backup..." | Out-File -Append -FilePath $logPath
+    &$info "Compressing backup..."
+    "Compressing backup..." | Out-File -Append -FilePath $logPath
     while ($true) {
         try {
             $compressedFile = "$backupDir.zip"
             Compress-Archive -Path $backupDir -DestinationPath $compressedFile -Force
             Remove-Item -Path $backupDir -Recurse -Force
             "Backup and compression complete. Files Moved: $($filesMoved.Count)." | Out-File -Append -FilePath $logPath
+            &$info "Backup and compression complete. Files Moved: $($filesMoved.Count)."
             break
         } catch {
-            &$logError "Error during compression: $_"  # Log the specific compression error
-            "Compression attempt failed: $_" | Out-File -Append -FilePath $logPath
+            &$logError "Error during compression: $_"
+            "Error during compression: $_" | Out-File -Append -FilePath $logPath
             # Move all files back to their original locations and retry compression
             $filesInBackupDir = Get-ChildItem -Path $backupDir -Recurse -File
             foreach ($fileInBackupDir in $filesInBackupDir) {
@@ -196,12 +200,14 @@ function DeepCacheClearing {
                 if ($originalFileDetails) {
                     Move-Item -Path $fileInBackupDir.FullName -Destination $originalFileDetails.OriginalPath -Force
                     "Moved $($fileInBackupDir.FullName) back to $($originalFileDetails.OriginalPath) due to compression error" | Out-File -Append -FilePath $logPath
+                    &$info "Moved $($fileInBackupDir.FullName) back to $($originalFileDetails.OriginalPath) due to compression error"
                     # Remove this file from the filesMoved list as it's no longer in the backup directory
                     $filesMoved = $filesMoved | Where-Object { $_.BackupPath -ne $fileInBackupDir.FullName }
                 }
             }
             if (-not (Get-ChildItem -Path $backupDir -File)) {
-                &$info "No files left to compress. Exiting compression loop." | Out-File -Append -FilePath $logPath
+                &$info "No files left to compress. Exiting compression loop."
+                "No files left to compress. Exiting compression loop." | Out-File -Append -FilePath $logPath
                 break
             }
         }
@@ -214,6 +220,7 @@ function DeepCacheClearing {
         &$confirm "Exiting..."
     }
 }
+
 
 function LogOffAllUsersExceptCurrent {
     Clear-Host
