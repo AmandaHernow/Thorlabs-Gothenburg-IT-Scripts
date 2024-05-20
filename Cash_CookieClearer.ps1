@@ -40,7 +40,6 @@ v.2.1: Added function to remove userprofile from windows device."
 # Main Menu and option selection functionality
 function Show-Menu {
     param ([string]$Title = 'Computer Clean Up Menu')
-    Clear-Host
     &$section $Title
     &$confirm "1: Deep Cache Clearing - Clears system and application caches."
     &$confirm "2: User Session Management - Logs off all users except the current. (Recommended)"
@@ -80,7 +79,6 @@ function Select-Option {
 }
 
 function DeepCacheClearing {
-    Clear-Host
     &$info "Opening Deep Cache Clearing..."
     &$section "SECTION 1: Deep Cache Clearing"
 
@@ -99,6 +97,11 @@ function DeepCacheClearing {
     $rootPath = "C:\"
     $backupRoot = "C:\cacheBackup"
     $filesMoved = @()
+    &$info "Exporting the list of users to c:\users\$env:USERNAME\users.csv..."
+    # List the users in c:\users and export to the local profile for calling later
+    dir C:\Users | select Name | Export-Csv -Path C:\users\$env:USERNAME\users.csv -NoTypeInformation
+    $list=Test-Path C:\users\$env:USERNAME\users.csv
+    &$info "User List Saved..."
 
     # Ensure the backup root directory exists
     if (-not (Test-Path -Path $backupRoot)) {
@@ -151,8 +154,8 @@ function DeepCacheClearing {
     "C:\Program Files (x86)\Common Files\Adobe\ARM",
     "C:\Program Files (x86)\Microsoft Office\Office16\XLSTART",
     "C:\Windows\SoftwareDistribution\DataStore",
-    "C:\Users\ahernow\Thorlabs-Gothenburg-IT-Scripts",
-    "C:\Users\ahernow\Thorlabs-Gothenburg-IT-Scripts - Copy"
+    "C:\Users\$env:USERNAME\Thorlabs-Gothenburg-IT-Scripts",
+    "C:\Users\$env:USERNAME\Thorlabs-Gothenburg-IT-Scripts - Copy"
     )
 
     &$info "Scanning for cache directories and files..." | Out-File -Append -FilePath $logPath
@@ -258,7 +261,6 @@ function LogOffAllUsersExceptCurrent {
     } else {
         &$confirm "Exiting..."
     }
-    ""
 }
 
 function DeleteUserProfile {
@@ -273,7 +275,7 @@ function DeleteUserProfile {
             &$confirm "$i. $($_.LocalPath)"
         }
 
-        &$info "Enter the number of the profile you want to remove or 'Q' to quit:"
+        &$info "Enter the number of the profile you want to remove or or any key to return to main menu:"
         $selectedNumber = Read-Host
 
         if ($selectedNumber.ToUpper() -eq 'Q') {
@@ -295,6 +297,7 @@ function DeleteUserProfile {
                 }
             } else {
                 &$info "Profile removal canceled."
+                Select-Option
             }
         } else {
             &$logError "Invalid input. Please enter a valid number corresponding to a user profile."
@@ -315,7 +318,6 @@ function DeleteUserProfile {
 }
 
 function ClearCommonProgramCache {
-
     &$section "SECTION 4: Clear Cache From Common Windows Programs"
 
     &$info "Listing Device Users"
@@ -385,98 +387,98 @@ function ClearCommonProgramCache {
             &$info "Scanning for Adobe Acrobat..."
             ""
         }
-    &$info "Starting next process..."
-    &$info "Scanning for Adobe Acrobat..."
-    ""
 
-        if(Is-Installed Adobe Reader){
-        # Clear Adobe Acrobat 
+        &$info "Starting next process..."
+        &$info "Scanning for Adobe Acrobat..."
+        ""
 
-        &$info "Clearing Adobe Acrobat Caches"
-        &$info "Starting clearing of Adobe caches task..."
+        if (Is-Installed "Adobe Reader") {
+            # Clear Adobe Acrobat Cache
 
-        Import-CSV -Path C:\users\$env:USERNAME\users.csv -Header Name | foreach {
-            $ProfilePath = "C:\Users\$env:USERNAME\AppData\Local\Adobe\Acrobat\DC"
+            &$info "Clearing Adobe Acrobat Caches"
+            &$info "Starting clearing of Adobe caches task..."
 
-            # Clearing general cache
-            &$info "Clearing general Acrobat cache..."
-            &$console
-            Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "Cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
+            Import-CSV -Path C:\users\$env:USERNAME\users.csv -Header Name | foreach {
+                $ProfilePath = "C:\Users\$env:USERNAME\AppData\Local\Adobe\Acrobat\DC"
 
-            # Clearing cookie files
-            &$info "Clearing Acrobat cookie files..."
-            &$console
-            Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "Acrobat\Cookie\*") -Recurse -Force -EA SilentlyContinue -Verbose
+                # Clearing general cache
+                &$info "Clearing general Acrobat cache..."
+                &$console
+                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "Cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
 
-            # Handling AcroCef Cache
-            $AcroCefPath = "C:\Users\$env:USERNAME\AppData\Local\Adobe\AcroCef\DC\Acrobat\Cache"
-            &$info "Clearing AcroCef cache and filtering specific files..."
-            &$console
-            Remove-Item -Path (Join-Path -Path $AcroCefPath -ChildPath "*.log") -Force -Verbose -EA SilentlyContinue -Verbose
-            Remove-Item -Path (Join-Path -Path $AcroCefPath -ChildPath "*.tmp") -Recurse -Force -EA SilentlyContinue -Verbose
+                # Clearing cookie files
+                &$info "Clearing Acrobat cookie files..."
+                &$console
+                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "Acrobat\Cookie\*") -Recurse -Force -EA SilentlyContinue -Verbose
 
-            # Handling ARM Cache (assuming clearing empty directories)
-            $ARMPath = "C:\Users\$env:USERNAME\AppData\Local\Adobe\ARM"
-            &$info "Cleaning up empty directories in Adobe ARM..."
-            &$console
-            Get-ChildItem -Path $ARMPath -Directory | Where-Object { $_.GetFileSystemInfos().Count -eq 0 } | Remove-Item -Recurse -Force -Verbose -EA SilentlyContinue
+                # Handling AcroCef Cache
+                $AcroCefPath = "C:\Users\$env:USERNAME\AppData\Local\Adobe\AcroCef\DC\Acrobat\Cache"
+                &$info "Clearing AcroCef cache and filtering specific files..."
+                &$console
+                Remove-Item -Path (Join-Path -Path $AcroCefPath -ChildPath "*.log") -Force -Verbose -EA SilentlyContinue -Verbose
+                Remove-Item -Path (Join-Path -Path $AcroCefPath -ChildPath "*.tmp") -Recurse -Force -EA SilentlyContinue -Verbose
 
-            # Managing specific Acrobat DC files
-            &$info "Handling specific Acrobat DC files..."
-            &$console
-            $specificFiles = @("UserCache64.bin", "DCAPIDiscoveryCacheAcrobat", "IconCacheAcro65536.dat", "IconCacheAcro98304.dat")
-            foreach ($file in $specificFiles) {
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath $file) -Force -Verbose -EA SilentlyContinue
-            }
+                # Handling ARM Cache (assuming clearing empty directories)
+                $ARMPath = "C:\Users\$env:USERNAME\AppData\Local\Adobe\ARM"
+                &$info "Cleaning up empty directories in Adobe ARM..."
+                &$console
+                Get-ChildItem -Path $ARMPath -Directory | Where-Object { $_.GetFileSystemInfos().Count -eq 0 } | Remove-Item -Recurse -Force -Verbose -EA SilentlyContinue
 
-            &$confirm "Adobe cache and specific files cleanup completed."
-            &$confirm "Done..."
-            &$info "Starting Scan for Google Chrome..."
-            ""
-            } else {
-                &$info "Adobe Acrobat is not installed..."
-                &$info "skipping task..."
-                &$confirm "Starting next process..."
+                # Managing specific Acrobat DC files
+                &$info "Handling specific Acrobat DC files..."
+                &$console
+                $specificFiles = @("UserCache64.bin", "DCAPIDiscoveryCacheAcrobat", "IconCacheAcro65536.dat", "IconCacheAcro98304.dat")
+                foreach ($file in $specificFiles) {
+                    Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath $file) -Force -Verbose -EA SilentlyContinue
+                }
+
+                &$confirm "Adobe cache and specific files cleanup completed."
+                &$confirm "Done..."
                 &$info "Starting Scan for Google Chrome..."
                 ""
-                }
+            }
+        } else {
+            &$info "Adobe Acrobat is not installed..."
+            &$info "skipping task..."
+            &$confirm "Starting next process..."
+            &$info "Starting Scan for Google Chrome..."
+            ""
+        }
 
         # Clear Google Chrome Cache if installed
         if (Is-Installed "Google Chrome") {
+            &$info "Clearing Google Chrome Caches"
+            &$info "Starting clearing Google Chrome caches task..."
+            &$console
 
-        &$info "Clearing Google Chrome Caches"
-        &$info "Starting clearing Google Chrome caches task..."
-        &$console
+            Import-CSV -Path C:\users\$env:USERNAME\users.csv -Header Name | foreach {
+                $ChromePath = "C:\Users\$($_.Name)\AppData\Local\Google\Chrome\User Data\Default"
 
-        Import-CSV -Path C:\users\$env:USERNAME\users.csv -Header Name | foreach {
-            $ChromePath = "C:\Users\$($_.Name)\AppData\Local\Google\Chrome\User Data\Default"
+                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
+                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cache2\entries\*") -Recurse -Force -EA SilentlyContinue -Verbose
+                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cookies\*") -Recurse -Force -EA SilentlyContinue -Verbose
+                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Media Cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
+                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cookies-Journal\*") -Recurse -Force -EA SilentlyContinue -Verbose
+                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "ChromeDWriteFontCache\*") -Recurse -Force -EA SilentlyContinue -Verbose
+            }
 
-            Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cache2\entries\*") -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cookies\*") -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Media Cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cookies-Journal\*") -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "ChromeDWriteFontCache\*") -Recurse -Force -EA SilentlyContinue -Verbose
+            &$info "Clearing Google Chrome caches completed."
+            &$confirm "Done..."
+            &$info "Starting Scan for Windows Cache..."
+            &$break
+        } else {
+            &$info "Google Chrome is not installed."
+            &$info "skipping task..."
+            &$confirm "Starting next process..."
+            &$confirm "Starting Scan for Windows System Cache..."
         }
 
-        &$info "Clearing Google Chrome caches completed."
-        &$confirm "Done..."
-        &$info "Starting Scan for Windows Cache..."
-        &$break
-    } else {
-        &$info "Google Chrome is not installed."
-        &$info "skipping task..."
-        &$confirm "Starting next process..."
-        &$confirm "Starting Scan for Windows System Cache..."
-        }
-
-        # Clear emporary Files
+        # Clear temporary Files
 
         &$info "Cleaning up in local Windows"
         &$info "Running local system Cache Cleanup Task..."
         &$console
         Import-CSV -Path C:\users\$env:USERNAME\users.csv | foreach {
-
             Remove-Item -path "C:\Windows\Temp\*" -Recurse -Force -EA SilentlyContinue -Verbose
             Remove-Item -path "C:\Windows\prefetch\*" -Recurse -Force -EA SilentlyContinue -Verbose
             Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\Temporary Internet Files\*" -Recurse -Force -EA SilentlyContinue -Verbose
@@ -484,18 +486,24 @@ function ClearCommonProgramCache {
             Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\ActionCenterCache\*" -Recurse -Force -EA SilentlyContinue -Verbose
             Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\Caches\*" -Recurse -Force -EA SilentlyContinue -Verbose
             Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\Caches\*" -Recurse -Force -EA SilentlyContinue -Verbose
-	        Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\WER\*" -Recurse -Force -EA SilentlyContinue -Verbose
-	        Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Temp\*" -Recurse -Force -EA SilentlyContinue -Verbose
+            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\WER\*" -Recurse -Force -EA SilentlyContinue -Verbose
+            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Temp\*" -Recurse -Force -EA SilentlyContinue -Verbose
             Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Edge\User Data\Default\Code Cache\*" -Recurse -Force -EA SilentlyContinue -Verbose
             Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Edge\User Data\ShaderCache\*" -Recurse -Force -EA SilentlyContinue -Verbose
             Remove-Item -path "C:\Users\$($_.Name)\Microsoft\Edge\User Data\Default\Cache\*" -Recurse -Force -EA SilentlyContinue -Verbose
 
-	        Remove-Item -path "C:\`$recycle.bin\*" -Recurse -Force -EA SilentlyContinue -Verbose
+            Remove-Item -path "C:\`$recycle.bin\*" -Recurse -Force -EA SilentlyContinue -Verbose
             &$confirm "Done..."
             &$info "Starting next process..."
             ""
-            }
         }
+    }
+
+    $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
+    if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
+        Select-Option
+    } else {
+        &$confirm "Exiting..."
     }
 }
 
@@ -555,7 +563,13 @@ function PerformDiskCleanup {
     }
 
     &$confirm "Disk Cleanup task completed."
-    ""
+
+    $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
+    if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
+        Select-Option
+    } else {
+        &$confirm "Exiting..."
+    }
 }
 
 function RepairOSImage {
@@ -573,6 +587,13 @@ function RepairOSImage {
         &$confirm "OS-Image repair task completed successfully."
     } catch {
         &$logError "An error occurred during DISM operation: $_"
+    }
+
+    $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
+    if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
+        Select-Option
+    } else {
+        &$confirm "Exiting..."
     }
 }
 
@@ -620,8 +641,14 @@ function OptimizeDisks {
             &$info "Disk $($disk.DeviceID) is neither HDD nor SSD or type is unknown. No specific action taken."
         }
     }
-}
 
+    $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
+    if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
+        Select-Option
+    } else {
+        &$confirm "Exiting..."
+    }
+}
 
 function FlushDNSCache {
     &$section "SECTION 8: Clearing DNS Client Cache"
@@ -631,11 +658,16 @@ function FlushDNSCache {
     # Flushing DNS
     Clear-DnsClientCache 
     &$confirm "DNS Flush task Done..."
+
+    $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
+    if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
+        Select-Option
+    } else {
+        &$confirm "Exiting..."
+    }
 }
 
-
 function Run-ChkdskAndRestart {
-
     &$section "SECTION 9: Disk Check and Restart"
     # Function to run chkdsk and handle the prompt automatically, then restart
     &$info "Scheduling disk check and preparing to restart..."
