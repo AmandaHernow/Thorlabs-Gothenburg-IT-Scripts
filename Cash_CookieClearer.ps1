@@ -1,25 +1,137 @@
-﻿# Color-coded message functions setup
-$section = {
-    param($text)
+﻿# Define reusable functions for color-coded messages
+function Write-Section {
+    param ([string]$text)
     Write-Host -ForegroundColor Blue "-------------------"
     Write-Host -ForegroundColor Green $text
     Write-Host -ForegroundColor Blue "-------------------"
 }
-$confirm = { param([string]$text) Write-Host -ForegroundColor Green $text }
-$info = { param([string]$text) Write-Host -ForegroundColor Yellow $text }
-$logError = { param([string]$text) Write-Host -ForegroundColor Red $text }
-$console = { param([string]$text) Write-Host -ForegroundColor Cyan $text }
+
+function Write-Confirm {
+    param ([string]$text)
+    Write-Host -ForegroundColor Green $text
+}
+
+function Write-Info {
+    param ([string]$text)
+    Write-Host -ForegroundColor Yellow $text
+}
+
+function Write-LogError {
+    param ([string]$text)
+    Write-Host -ForegroundColor Red $text
+}
+
+function Write-Console {
+    param ([string]$text)
+    Write-Host -ForegroundColor Cyan $text
+}
+
+# Define global variables
+$global:userInput = ""
+$global:rootPath = "C:\"
+$global:logFilePath = "C:\scriptLogs\cleanupLog.txt"
+$global:currentUserInfo = ""
+$global:currentUsername = ""
+$global:installedPrograms = @()
+
+# Function to get validated user input for menu selection
+function Get-ValidatedInput {
+    param (
+        [string]$prompt,
+        [string[]]$validOptions
+    )
+    try {
+        do {
+            $global:userInput = (Read-Host -Prompt $prompt).Trim().ToUpper()
+            if ($validOptions -contains $global:userInput) {
+                return $global:userInput
+            } else {
+                Write-LogError "Invalid input. Please enter a valid option."
+            }
+        } while ($true)
+    } catch {
+        Write-LogError "An error occurred while reading user input: $_"
+    }
+}
+
+# Function to get validated integer input, allowing ranges and comma-separated values
+function Get-ValidatedIntListInput {
+    param (
+        [string]$prompt
+    )
+    try {
+        do {
+            $global:userInput = (Read-Host -Prompt $prompt).Trim()
+            if ($global:userInput -match '^[0-9,-\s]+$') {
+                $ranges = $global:userInput -split ','
+                $numbers = @()
+
+                foreach ($range in $ranges) {
+                    if ($range -match '^\s*(\d+)\s*-\s*(\d+)\s*$') {
+                        $start = [int]$matches[1]
+                        $end = [int]$matches[2]
+                        if ($start -le $end) {
+                            $numbers += $start..$end
+                        } else {
+                            Write-LogError "Invalid range: $range"
+                        }
+                    } elseif ($range -match '^\s*(\d+)\s*$') {
+                        $numbers += [int]$matches[1]
+                    } else {
+                        Write-LogError "Invalid input: $range"
+                    }
+                }
+
+                return $numbers
+            } else {
+                Write-LogError "Invalid input. Please enter valid numbers or ranges."
+            }
+        } while ($true)
+    } catch {
+        Write-LogError "An error occurred while reading user input: $_"
+    }
+}
+
+# Function to fetch the current user info and store in global variables
+function Fetch-CurrentUserInfo {
+    $global:currentUserInfo = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $global:currentUsername = $global:currentUserInfo.Split('\')[-1]
+}
+
+# Function to fetch installed programs and store in global variable
+function Fetch-And-Display-InstalledPrograms {
+    Write-Info "Fetching list of installed programs..."
+    $registryPaths = @(
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )
+
+    $global:installedPrograms = $registryPaths | ForEach-Object {
+        Get-ItemProperty $_
+    } | Select-Object DisplayName | Where-Object { $_.DisplayName -ne $null }
+
+    Write-Info "Displaying installed programs:"
+    $global:installedPrograms | ForEach-Object {
+        Write-Host $_.DisplayName -ForegroundColor Green
+    }
+}
+
+# Function to check if a program is installed
+function Is-Installed {
+    param ([string]$appName)
+    return $global:installedPrograms | Where-Object { $_.DisplayName -like "*$appName*" } | Select-Object -First 1
+}
 
 # Display Header Information
 Write-Host -ForegroundColor Blue "---------------------Developed by Amanda Hernow - Thorlabs Sweden AB---------------------"
-&$confirm "Use: PowerShell script to be executed remotely on production PC using PSexec, scheduled task, or run from autofire HID device."
-&$confirm "Program Description: Automates clean disk, clearing cache and cookies on all user accounts on the targeted PC, performs optimization and defragmentations on hard drive"
-&$confirm "Developer: Amanda Hernow, Thorlabs Sweden AB"
-&$confirm "Version: 2.1 Updated: 08-05-2024"
+Write-Confirm "Use: PowerShell script to be executed remotely on production PC using PSexec, scheduled task, or run from autofire HID device."
+Write-Confirm "Program Description: Automates clean disk, clearing cache and cookies on all user accounts on the targeted PC, performs optimization and defragmentations on hard drive"
+Write-Confirm "Developer: Amanda Hernow, Thorlabs Sweden AB"
+Write-Confirm "Version: 2.2 Updated: 24-05-2024"
 Write-Host -ForegroundColor Blue "-------------------------------PowerShell Script - PC Clean Up---------------------------"
 
 # Change Log and Coming Soon Section
-&$confirm "CHANGE_LOG:
+Write-Confirm "CHANGE_LOG:
 V.0.1: Pre Alpha - Made Script Windows 11 Compatible and added DNS cache clean-up.
 V.0.2: Pre Alpha - Listed installed programs to facilitate checks for installed applications.
 V.0.3: Alpha - Enhanced operational stability for local PC executions.
@@ -30,95 +142,321 @@ V.1.1: Beta - Improved user interface feedback and scripting verbosity for bette
 V.1.2: Beta - Enhanced error handling mechanisms and added dynamic execution paths based on system state.
 v.1.3: Beta - Implemented automated disk cleanup task
 v.2.0: Developed switch menu for dynamic script interactions.
-v.2.1: Added function to remove userprofile from windows device."
-&$info "COMING_SOON:
+v.2.1: Added function to remove user profile from windows device.
+v.2.2: Improved structure, added global functions for fetching user and program data, updated error handling."
+Write-Info "COMING_SOON:
 1. Development of a switch menu for Program picker to clean common program files only
 2. Deciding on execution methods: scheduled tasks, autofire HID devices, or through PSexec remotely.
 3. Explore the possibility of dynamically finding cache paths from program installation paths for targeted cleaning.
 4. Implement robust error handling to manage and log exceptions and errors effectively."
 
-# Main Menu and option selection functionality
-function Show-Menu {
-    param ([string]$Title = 'Computer Clean Up Menu')
-    &$section $Title
-    &$confirm "1: Deep Cache Clearing - Clears system and application caches."
-    &$confirm "2: User Session Management - Logs off all users except the current. (Recommended)"
-    &$confirm "3: Delete user profile from windows device"
-    &$confirm "4: Common Program Cache Cleaning - Clears cache from browsers and more."
-    &$confirm "5: Disk Cleanup - Cleans temporary files and updates."
-    &$confirm "6: OS Image Repair - Runs DISM and SFC to repair system files."
-    &$confirm "7: Disk Optimization - Optimizes HDDs and SSDs."
-    &$confirm "8: DNS Cache Flush - Clears DNS cache to resolve network issues."
-    &$confirm "9: Disk Check and Restart - Intensive scan and repair. WARNING: Restarts immediately!"
-    &$confirm "Q: Quit - Exit the menu and end the session."
-}
+# Functions for specific tasks
+function LogOffAllUsersExceptCurrent {
+    Clear-Host
+    Write-Section "SECTION 2: Logging Off All Users Except Current Session..."
 
-function Select-Option {
-    Show-Menu
-    $userChoice = Read-Host "Select an option by number (or 'Q' to Quit)"
-    switch ($userChoice) {
-        '1' { DeepCacheClearing }
-        '2' { LogOffAllUsersExceptCurrent }
-        '3' { DeleteUserProfile }
-        '4' { ClearCommonProgramCache }
-        '5' { PerformDiskCleanup }
-        '6' { RepairOSImage }
-        '7' { OptimizeDisks }
-        '8' { FlushDNSCache }
-        '9' { Run-ChkdskAndRestart }
-        'Q' {
-            &$confirm "Exiting..."
-            exit
-        }
-        default {
-            &$logError "Invalid option, please try again."
-            Start-Sleep -Seconds 2
-            Select-Option  # Recursively call Select-Option to handle retries
+    function GetCurrentUserInfo {
+        Fetch-CurrentUserInfo
+    }
+
+    function DisplayCurrentUserInfo {
+        Write-Console "Current user info: $global:currentUserInfo"
+        Write-Console "Query current user session: $global:queryCurrentUserSession"
+    }
+
+    function GetLoggedOnUsers {
+        try {
+            $global:quserOutput = quser | Select-Object -Skip 1  # Skip the header
+            $global:sessions = $global:quserOutput | ForEach-Object {
+                if ($_ -match "(?i)(\w+)\s+(\d+)\s+") {
+                    @{
+                        UserName = $Matches[1].Trim()
+                        SessionID = $Matches[2]
+                    }
+                }
+            }
+        } catch {
+            Write-LogError "quser command not found. Falling back to Get-CimInstance."
+            $global:sessions = Get-CimInstance -ClassName Win32_ComputerSystem | ForEach-Object {
+                if ($_.UserName) {
+                    $sessionInfo = @{
+                        UserName = $_.UserName.Split('\')[-1]
+                        SessionID = ($_.GetRelated('Win32_LogonSession') | ForEach-Object { $_.LogonId }) -join ','
+                    }
+                    [pscustomobject]$sessionInfo
+                }
+            }
         }
     }
+
+    function LogOffOtherUsers {
+        foreach ($session in $global:sessions) {
+            if ($session.UserName -ne $global:currentUsername) {
+                Write-Info "Logging off user $($session.UserName) with session ID $($session.SessionID)..."
+                # Uncomment the next line to actually log off the users when you're ready to use this function in production
+                # logoff $session.SessionID
+                Start-Sleep -Seconds 2  # A short pause to ensure each logoff command has time to execute
+            } else {
+                Write-Console "Skipping logoff for current user session: $($session.UserName) with session ID $($session.SessionID)"
+            }
+        }
+        Write-Confirm "User logoff process completed."
+    }
+
+    GetCurrentUserInfo
+    DisplayCurrentUserInfo
+    GetLoggedOnUsers
+    LogOffOtherUsers
+
+    Show-Menu
+}
+
+function DeleteUserProfile {
+    Write-Info "Opening script to delete user profile from Windows device..."
+    Write-Section "SECTION 3: Deleting User Profiles"
+
+    function GetAllUserProfiles {
+        $global:profiles = Get-WmiObject -Class Win32_UserProfile | Where-Object { 
+            !$_.Special -and 
+            $_.LocalPath -notmatch 'DefaultAppPool|ServiceProfiles|Public|defaultuser0' -and
+            $_.LocalPath -notmatch 'C:\\Users\\Administrator' -and
+            $_.LocalPath -notmatch 'C:\\Users\\Admin'
+        }
+        $global:i = 0
+        $global:profileMap = @{}
+    }
+
+    function DisplayUserProfiles {
+        $global:profiles | ForEach-Object {
+            $global:i++
+            $global:profileMap[$global:i] = $_
+            Write-Confirm "$global:i. $($_.LocalPath)"
+        }
+    }
+
+    function GetUserInputSelection {
+        Write-Host "Enter the numbers of the profiles you want to remove (e.g., 1-3,5,7) or any key to return to main menu: " -ForegroundColor Yellow -NoNewline
+        $global:userInput = Read-Host
+
+        if ($global:userInput.Count -eq 0) {
+            Show-Menu
+            return
+        }
+
+        $global:selectedNumbers = $global:userInput -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^\d+(-\d+)?$' }
+
+        if ($global:selectedNumbers.Count -eq 0) {
+            Write-LogError "Invalid input. Please enter valid numbers or ranges."
+            Show-Menu
+            return
+        }
+
+        $global:selectedProfiles = @()
+        foreach ($number in $global:selectedNumbers) {
+            if ($number -match '^(\d+)-(\d+)$') {
+                $start = [int]$matches[1]
+                $end = [int]$matches[2]
+                if ($start -le $end) {
+                    $global:selectedProfiles += $start..$end | ForEach-Object { $global:profileMap[$_] }
+                } else {
+                    Write-LogError "Invalid range: $number"
+                }
+            } elseif ($global:profileMap.ContainsKey([int]$number)) {
+                $global:selectedProfiles += $global:profileMap[[int]$number]
+            } else {
+                Write-LogError "Profile number $number is not valid."
+            }
+        }
+
+        if ($global:selectedProfiles.Count -eq 0) {
+            Write-LogError "No valid profiles selected. Returning to main menu."
+            Show-Menu
+            return
+        }
+    }
+
+    function ConfirmDeletion {
+        Write-Info "You have selected the following profiles for deletion:"
+        $global:selectedProfiles | ForEach-Object { Write-Info $_.LocalPath }
+        Write-Host -NoNewline -ForegroundColor Yellow "Are you sure you want to remove these profiles? (Y/N): "
+        $global:userInput = Read-Host
+
+        if ($global:userInput.ToUpper() -eq 'Y') {
+            $success = $true
+            foreach ($profile in $global:selectedProfiles) {
+                try {
+                    $profile | Remove-WmiObject -Verbose
+                    Write-Confirm "Profile at $($profile.LocalPath) removed successfully."
+                } catch {
+                    Write-LogError "Failed to remove profile at $($profile.LocalPath): $_"
+                    $success = $false
+                }
+            }
+
+            if ($success) {
+                Write-Host -NoNewline -ForegroundColor Yellow "Would you like to (1) remove another profile, or (2) return to the main menu? "
+                $userDecision = Get-ValidatedInput "Enter your choice (1 or 2):" @("1", "2")
+                if ($userDecision -eq '1') {
+                    DeleteUserProfile
+                } else {
+                    Show-Menu
+                }
+            } else {
+                Write-Host -NoNewline -ForegroundColor Yellow "Do you want to try deleting profiles again? (Y/N): "
+                $global:userInput = Read-Host
+                if ($global:userInput.ToUpper() -eq 'Y') {
+                    DeleteUserProfile
+                } else {
+                    Show-Menu
+                }
+            }
+        } else {
+            Write-Info "Profile removal canceled. Returning to main menu."
+            Show-Menu
+        }
+    }
+
+    do {
+        GetAllUserProfiles
+        DisplayUserProfiles
+        GetUserInputSelection
+        ConfirmDeletion
+    } while ($true)
 }
 
 function DeepCacheClearing {
-    &$info "Opening Deep Cache Clearing..."
-    &$section "SECTION 1: Deep Cache Clearing"
-
-    # Warning and confirmation
-    &$info "WARNING: This function aims to comprehensively clean cache files across the system and software directories."
-    &$info "Press 'Y' to proceed or any other key to return to the main menu. Proceed with caution."
-    $userInput = Read-Host "Do you want to proceed? (Y/N):"
-    if ($userInput.ToUpper() -ne 'Y') {
-        &$info "Operation cancelled by user. Returning to main menu..."
-        Select-Option
-        return
+    function WelcomeClean {
+        Write-Info "Opening Deep Cache Clearing..."
+        Write-Section "SECTION 1: Deep Cache Clearing"
     }
 
-    # Initial setup and backup directory check
-    $rootPath = "C:\"
-    $backupRoot = "C:\cacheBackup"
-    $filesMoved = @()
-    &$info "Exporting the list of users to C:\users\$env:USERNAME\users.csv..."
-    
-    # List the users in C:\Users and export to the local profile for calling later
-    Get-ChildItem -Path C:\Users | Select-Object Name | Export-Csv -Path "C:\users\$env:USERNAME\users.csv" -NoTypeInformation
-    $list = Test-Path "C:\users\$env:USERNAME\users.csv"
-    &$info "User List Saved..."
-
-    # Ensure the backup root directory exists
-    if (-not (Test-Path -Path $backupRoot)) {
-        New-Item -Path $backupRoot -ItemType Directory -Force | Out-Null
-        &$info "Backup root directory created..."
-    } else {
-        &$info "Backup root directory already exists..."
+    function WarningClean {
+        Write-Host -NoNewline -ForegroundColor Red "WARNING"
+        Write-Host -ForegroundColor Red ": Highly experimental script, run at your own risk."
+        Write-Host ""
+        Write-Host -NoNewline -ForegroundColor Yellow "This function aims to comprehensively clean cache files across the system and software directories."
+        Write-Info "Press 'q' at any time to interrupt the script and choose an action."
+        Write-Host -NoNewline -ForegroundColor Yellow "Do you want to (1) Proceed to run the script, (2) Restore cache backup files, or (3) Go back to the main menu? (1/2/3): "
+        $global:userInput = Read-Host
+        if ($global:userInput -eq '1') {
+            return $true
+        } elseif ($global:userInput -eq '2') {
+            Write-Info "If the backup folder is compressed, please decompress it before proceeding."
+            RestoreCacheBackupFiles
+            return $false
+        } else {
+            Show-Menu
+            return $false
+        }
     }
 
-    $date = Get-Date -Format "yyyyMMddHHmmss"
-    $backupDir = Join-Path -Path $backupRoot -ChildPath "cacheBackup_$date"
-    New-Item -Path $backupDir -ItemType Directory -Force | Out-Null
-    $logPath = Join-Path -Path $backupRoot -ChildPath "$($date).log"
-    New-Item -Path $logPath -ItemType File -Force | Out-Null
+    function RestoreCacheBackupFiles {
+        Write-Info "Listing all non-compressed cache backup folders..."
+        $backupFolders = Get-ChildItem -Path $global:backupRoot -Directory | Where-Object { -not ($_ | Get-ChildItem -Filter '*.zip') }
+        $i = 0
+        $backupMap = @{}
 
-    # Define excluded extensions and directories to skip
-    $excludedExtensions = @(
+        foreach ($folder in $backupFolders) {
+            $i++
+            $backupMap[$i] = $folder
+            Write-Confirm "$i. $($folder.Name)"
+        }
+
+        Write-Host -NoNewline -ForegroundColor Yellow "Enter the number of the backup folder to restore or 'q' to return to the main menu: "
+        $global:userInput = Read-Host
+
+        if ($global:userInput -eq 'Q') {
+            Show-Menu
+            return
+        }
+
+        if ($backupMap.ContainsKey([int]$global:userInput)) {
+            $selectedBackup = $backupMap[[int]$global:userInput]
+            $logFileName = "$($selectedBackup.Name.Split('_')[-1]).log"
+            $logFilePath = Join-Path -Path $global:backupRoot -ChildPath $logFileName
+
+            # Debugging output
+            Write-Info "Selected Backup: $selectedBackup"
+            Write-Info "Expected Log File Path: $logFilePath"
+
+            if (Test-Path -Path $logFilePath) {
+                Write-Info "Restoring files from $($selectedBackup.FullName)..."
+                "Restoring files from $($selectedBackup.FullName)..." | Out-File -Append -FilePath $global:logPath
+
+                # Check if there's an extra directory layer
+                $backupSubFolders = Get-ChildItem -Path $selectedBackup.FullName -Directory
+                if ($backupSubFolders.Count -eq 1 -and $backupSubFolders[0].Name -eq $selectedBackup.Name) {
+                    $backupPath = $backupSubFolders[0].FullName
+                } else {
+                    $backupPath = $selectedBackup.FullName
+                }
+
+                $logEntries = Get-Content -Path $logFilePath -Encoding Unicode | Where-Object { $_ -match 'moved to' }
+                foreach ($entry in $logEntries) {
+                    $originalPath = $entry -replace ' moved to .*', ''
+                    $fileBackupPath = Join-Path -Path $backupPath -ChildPath (Split-Path -Leaf $entry -replace '.* moved to ')
+
+                    Write-Info "Attempting to restore $fileBackupPath to $originalPath"
+
+                    if (-not (Test-Path -Path $fileBackupPath)) {
+                        Write-LogError "Backup file not found: $fileBackupPath"
+                        continue
+                    }
+
+                    if (-not (Test-Path -Path (Split-Path -Path $originalPath -Parent))) {
+                        Write-LogError "Original directory not found: $(Split-Path -Path $originalPath -Parent)"
+                        continue
+                    }
+
+                    try {
+                        Robocopy $fileBackupPath (Split-Path -Path $originalPath -Parent) (Split-Path -Leaf $originalPath) /MOV /NFL /NDL /NJH /NJS
+                        Write-Info "Restored $fileBackupPath to $originalPath"
+                        "Restored $fileBackupPath to $originalPath" | Out-File -Append -FilePath $global:logPath
+                    } catch {
+                        Write-LogError "Error restoring ${fileBackupPath} to ${originalPath}: $_"
+                    }
+                }
+                Remove-Item -Path $selectedBackup.FullName -Recurse -Force
+                Write-Info "Files restored to their original locations. Backup folder $($selectedBackup.FullName) deleted."
+            } else {
+                Write-LogError "Log file not found for the selected backup. Cannot restore files."
+            }
+        } else {
+            Write-LogError "Invalid selection. Returning to main menu."
+        }
+    }
+
+    function SetupCleanDirNBack {
+        $global:rootPath = "C:\"
+        $global:backupRoot = "C:\cacheBackup"
+        $global:filesMoved = @()
+        Write-Info "Exporting the list of users to C:\users\$env:USERNAME\users.csv..."
+    }
+
+    function UserList {
+        Get-ChildItem -Path C:\Users | Select-Object Name | Export-Csv -Path "C:\users\$env:USERNAME\users.csv" -NoTypeInformation
+        $list = Test-Path "C:\users\$env:USERNAME\users.csv"
+        Write-Info "User List Saved..."
+    }
+
+    function TestBackDir {
+        if (-not (Test-Path -Path $global:backupRoot)) {
+            New-Item -Path $global:backupRoot -ItemType Directory -Force | Out-Null
+            Write-Info "Backup root directory created..."
+        } else {
+            Remove-Item -Path $global:backupRoot -Recurse -Force
+            New-Item -Path $global:backupRoot -ItemType Directory -Force | Out-Null
+            Write-Info "Backup root directory recreated..."
+        }
+
+        $global:date = Get-Date -Format "yyyyMMddHHmmss"
+        $global:backupDir = Join-Path -Path $global:backupRoot -ChildPath "cacheBackup_$global:date"
+        New-Item -Path $global:backupDir -ItemType Directory -Force | Out-Null
+        $global:logPath = Join-Path -Path $global:backupRoot -ChildPath "$($global:date).log"
+        New-Item -Path $global:logPath -ItemType File -Force | Out-Null
+    }
+
+    $global:excludedExtensions = @(
         ".7z", ".7Z", ".a", ".A", ".accdb", ".ACCDB", ".aep", ".AEP", ".ai", ".AI", ".ani", ".ANI", ".aspx", ".ASPX", 
         ".bak", ".BAK", ".bat", ".BAT", ".bin", ".BIN", ".BLOB", ".blob", ".blog", ".BLOG", ".bik", ".BIK", ".cdxml", 
         ".CDXML", ".cert", ".CERT", ".chk", ".CHK", ".class", ".CLASS", ".cmd", ".CMD", ".com", ".COM", ".conf", ".CONF", 
@@ -143,9 +481,10 @@ function DeepCacheClearing {
         ".svn", ".SVN", ".sys", ".SYS", ".tar", ".TAR", ".tbres", ".TBRES", ".theme", ".THEME", ".themepack", ".THEMEPACK", ".tiff", ".TIFF", 
         ".tif", ".TIF", ".ts", ".TS", ".tsx", ".TSX", ".v2", ".V2", ".val", ".VAL", ".vbproj", ".VBPROJ", ".vbs", ".VBS", 
         ".vdi", ".VDI", ".vmdk", ".VMDK", ".vmx", ".VMX", ".vpk", ".VPK", ".vhdx", ".VHDX", ".war", ".WAR", ".x3d", ".X3D", ".xcodeproj", ".XCODEPROJ", 
-        ".xcf", ".XCF", ".xml", ".XML", ".yaml", ".YAML", ".yml", ".YML", ".zip", ".ZIP", ".z", ".Z"
+        ".xcf", ".XCF", ".xml", ".XML", ".yaml", ".YAML", ".yml", ".YML", ".zip", ".ZIP", ".z", ".Z", ".title", ".manifest", ".mum"
     )
-    $excludedDirectories = @(
+
+    $global:excludedDirectories = @(
         "C:\Windows\System32\LogFiles",
         "C:\cacheBackup",
         "C:\Windows\System32\config",
@@ -158,537 +497,477 @@ function DeepCacheClearing {
         "C:\Users\$env:USERNAME\Thorlabs-Gothenburg-IT-Scripts - Copy"
     )
 
-    &$info "Scanning for cache directories and files..."
-    "Scanning for cache directories and files..." | Out-File -Append -FilePath $logPath
-    $allDirectories = Get-ChildItem -Path $rootPath -Directory -Recurse -Force -ErrorAction SilentlyContinue -Verbose |
-        Where-Object { $_.FullName -like "*cache*" -and $excludedDirectories -notcontains $_.FullName }
+    function ScanNMove {
+        Write-Info "Scanning for cache directories and files..."
+        "Scanning for cache directories and files..." | Out-File -Append -FilePath $global:logPath
+    
+        $allDirectories = Get-ChildItem -Path $global:rootPath -Directory -Recurse -Force -ErrorAction SilentlyContinue -Verbose |
+            Where-Object { $_.FullName -like "*cache*" -and $global:excludedDirectories -notcontains $_.FullName }
 
-    foreach ($dir in $allDirectories) {
-        $files = Get-ChildItem -Path $dir.FullName -File -Recurse -Force -ErrorAction SilentlyContinue -Verbose |
-            Where-Object {
-                $_.Extension -notin $excludedExtensions -and
-                -not $_.Attributes.ToString().Split(',').Contains('System')
+        foreach ($dir in $allDirectories) {
+            Write-Info "Processing directory: $($dir.FullName)"
+            "Processing directory: $($dir.FullName)" | Out-File -Append -FilePath $global:logPath
+
+            $files = Get-ChildItem -Path $dir.FullName -File -Recurse -Force -ErrorAction SilentlyContinue -Verbose |
+                Where-Object {
+                    $extension = $_.Extension.ToLower()
+                    $name = $_.Name.ToLower()
+                    $excluded = $global:excludedExtensions -contains $extension -or ($global:excludedExtensions | ForEach-Object { $_.TrimStart('.') } | ForEach-Object { $_.ToUpper() }) -contains $name
+                    -not $excluded -and
+                    -not $_.Attributes.ToString().Split(',').Contains('System')
+                }
+
+            foreach ($file in $files) {
+                if ([console]::KeyAvailable) {
+                    [console]::ReadKey($true) | Out-Null
+                    Write-Info "Process interrupted by user."
+                    $global:userInput = Read-Host "Press 'C' to compress the folder or 'M' to move files back:"
+
+                    if ($global:userInput.ToUpper() -eq 'C') {
+                        Compress
+                        return
+                    } elseif ($global:userInput.ToUpper() -eq 'M') {
+                        MoveFilesBack
+                        return
+                    }
+                }
+
+                $destinationFile = Join-Path -Path $global:backupDir -ChildPath $file.Name
+                Robocopy $file.FullName $global:backupDir $file.Name /MOV /NFL /NDL /NJH /NJS
+                $global:filesMoved += @{ "OriginalPath"=$file.FullName; "BackupPath"=$destinationFile; "OriginalName"=$file.Name }
+                "$($file.FullName) moved to $destinationFile" | Out-File -Append -FilePath $global:logPath
+                Write-Info "$($file.FullName) moved to $destinationFile"
             }
-
-        foreach ($file in $files) {
-            $destinationFile = Join-Path -Path $backupDir -ChildPath $file.Name
-            Robocopy $dir.FullName $backupDir $file.Name /MOV /NFL /NDL /NJH /NJS
-            $filesMoved += @{ "OriginalPath"=$file.FullName; "BackupPath"=$destinationFile; "OriginalName"=$file.Name }
-            "$($file.FullName) moved to $destinationFile" | Out-File -Append -FilePath $logPath
-            &$info "$($file.FullName) moved to $destinationFile"
         }
     }
 
-    &$info "Compressing backup..."
-    "Compressing backup..." | Out-File -Append -FilePath $logPath
-    while ($true) {
-        try {
-            $compressedFile = "$backupDir.zip"
-            Compress-Archive -Path $backupDir -DestinationPath $compressedFile -Force
-            Remove-Item -Path $backupDir -Recurse -Force
-            "Backup and compression complete. Files Moved: $($filesMoved.Count)." | Out-File -Append -FilePath $logPath
-            &$info "Backup and compression complete. Files Moved: $($filesMoved.Count)."
-            break
-        } catch {
-            &$logError "Error during compression: $_"
-            "Error during compression: $_" | Out-File -Append -FilePath $logPath
-            # Move all files back to their original locations and retry compression
-            $filesInBackupDir = Get-ChildItem -Path $backupDir -Recurse -File
-            foreach ($fileInBackupDir in $filesInBackupDir) {
-                # Try to move the file back to its original location
-                $originalFileDetails = $filesMoved | Where-Object { $_.BackupPath -eq $fileInBackupDir.FullName }
-                if ($originalFileDetails) {
-                    Move-Item -Path $fileInBackupDir.FullName -Destination $originalFileDetails.OriginalPath -Force
-                    "Moved $($fileInBackupDir.FullName) back to $($originalFileDetails.OriginalPath) due to compression error" | Out-File -Append -FilePath $logPath
-                    &$info "Moved $($fileInBackupDir.FullName) back to $($originalFileDetails.OriginalPath) due to compression error"
-                    # Remove this file from the filesMoved list as it's no longer in the backup directory
-                    $filesMoved = $filesMoved | Where-Object { $_.BackupPath -ne $fileInBackupDir.FullName }
+    function Compress {
+        Write-Info "Compressing backup..."
+        "Compressing backup..." | Out-File -Append -FilePath $global:logPath
+        while ($true) {
+            try {
+                $compressedFile = "$global:backupDir.zip"
+                Compress-Archive -Path $global:backupDir -DestinationPath $compressedFile -Force
+                Remove-Item -Path $global:backupDir -Recurse -Force
+                "Backup and compression complete. Files Moved: $($global:filesMoved.Count)." | Out-File -Append -FilePath $global:logPath
+                Write-Info "Backup and compression complete. Files Moved: $($global:filesMoved.Count)."
+                break
+            } catch {
+                Write-LogError "Error during compression: $_"
+                "Error during compression: $_" | Out-File -Append -FilePath $global:logPath
+                # Move all files back to their original locations and retry compression
+                $filesInBackupDir = Get-ChildItem -Path $global:backupDir -Recurse -File
+                foreach ($fileInBackupDir in $filesInBackupDir) {
+                    # Try to move the file back to its original location
+                    $originalFileDetails = $global:filesMoved | Where-Object { $_.BackupPath -eq $fileInBackupDir.FullName }
+                    if ($originalFileDetails) {
+                        Robocopy $fileInBackupDir.FullName (Split-Path -Path $originalFileDetails.OriginalPath -Parent) (Split-Path -Leaf $originalFileDetails.OriginalPath) /MOV /NFL /NDL /NJH /NJS
+                        "Moved $($fileInBackupDir.FullName) back to $($originalFileDetails.OriginalPath) due to compression error" | Out-File -Append -FilePath $global:logPath
+                        Write-Info "Moved $($fileInBackupDir.FullName) back to $($originalFileDetails.OriginalPath) due to compression error"
+                        # Remove this file from the filesMoved list as it's no longer in the backup directory
+                        $global:filesMoved = $global:filesMoved | Where-Object { $_.BackupPath -ne $fileInBackupDir.FullName }
+                    }
+                }
+                if (-not (Get-ChildItem -Path $global:backupDir -File)) {
+                    Write-Info "No files left to compress. Exiting compression loop."
+                    "No files left to compress. Exiting compression loop." | Out-File -Append -FilePath $global:logPath
+                    break
                 }
             }
-            if (-not (Get-ChildItem -Path $backupDir -File)) {
-                &$info "No files left to compress. Exiting compression loop."
-                "No files left to compress. Exiting compression loop." | Out-File -Append -FilePath $logPath
+        }
+    }
+
+    function MoveFilesBack {
+        Write-Info "Moving files back to their original locations..."
+        "Moving files back to their original locations..." | Out-File -Append -FilePath $global:logPath
+
+        foreach ($file in $global:filesMoved) {
+            try {
+                if (Test-Path -Path $file.BackupPath) {
+                    Robocopy $file.BackupPath (Split-Path -Path $file.OriginalPath -Parent) (Split-Path -Leaf $file.OriginalPath) /MOV /NFL /NDL /NJH /NJS
+                    "Moved $($file.BackupPath) back to $($file.OriginalPath)" | Out-File -Append -FilePath $global:logPath
+                    Write-Info "Moved $($file.BackupPath) back to $($file.OriginalPath)"
+                } else {
+                    Write-LogError "Backup file not found: $($file.BackupPath)"
+                }
+            } catch {
+                Write-LogError "Error moving ${file.BackupPath} back to ${file.OriginalPath}: $_"
+            }
+        }
+    
+        if (Test-Path -Path $global:backupDir) {
+            Remove-Item -Path $global:backupDir -Recurse -Force
+        }
+    }
+
+    function ReturnToMenu {
+        do {
+            Write-Host -NoNewline -ForegroundColor Yellow "Press 'Y' to return to the main menu or any other key to retry the script: "
+            $global:userInput = Read-Host
+            if ($global:userInput.ToUpper() -eq 'Y') {
+                Show-Menu
+                break
+            } else {
+                Write-Confirm "Retrying the script..."
+                DeepCacheClearing
                 break
             }
-        }
+        } while ($true)
     }
 
-    $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
-    if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
-        Select-Option
-    } else {
-        &$confirm "Exiting..."
+    WelcomeClean
+    if (WarningClean) {
+        SetupCleanDirNBack
+        UserList
+        TestBackDir
+        ScanNMove
+        Write-Host -NoNewline -ForegroundColor Yellow "Do you want to (1) Compress the backup or (2) Move files back? (1/2): "
+        $global:userInput = Read-Host
+        if ($global:userInput -eq '1') {
+            Compress
+        } elseif ($global:userInput -eq '2') {
+            MoveFilesBack
+        }
     }
+    ReturnToMenu
 }
 
-
-function LogOffAllUsersExceptCurrent {
-    Clear-Host
-    &$section "SECTION 2: Logging Off All Users Except Current Session..."
-
-    # Retrieve current username and session ID for more accurate identification
-    $currentUserInfo = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $currentUsername = $currentUserInfo.Split('\')[-1]
-    $queryCurrentUserSession = quser $currentUsername | Select-Object -Skip 1
-
-    # Display current user information for debugging
-    &$console "Current user info: $currentUserInfo"
-    &$console "Query current user session: $queryCurrentUserSession"
-
-    # Get a list of all logged on users using 'quser'
-    $quserOutput = quser | Select-Object -Skip 1  # Skip the header
-
-    # Parse the output to get session IDs and usernames
-    $sessions = $quserOutput | ForEach-Object {
-        if ($_ -match "(?i)(\w+)\s+(\d+)\s+") {
-            @{
-                UserName = $Matches[1].Trim()
-                SessionID = $Matches[2]
-            }
-        }
-    }
-
-    # Log off each session except the current user's session
-    foreach ($session in $sessions) {
-        if ($session.UserName -ne $currentUsername) {
-            &$info "Logging off user $($session.UserName) with session ID $($session.SessionID)..."
-            # Uncomment the next line to actually log off the users when you're ready to use this function in production
-            # logoff $session.SessionID
-            Start-Sleep -Seconds 2  # A short pause to ensure each logoff command has time to execute
-        } else {
-            &$console "Skipping logoff for current user session: $($session.UserName) with session ID $($session.SessionID)"
-        }
-    }
-    &$confirm "User logoff process completed."
-
-    # Ask user if they want to return to the main menu
-    $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
-    if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
-        Select-Option
-    } else {
-        &$confirm "Exiting..."
-    }
-}
-
-function DeleteUserProfile {
-    &$info "Opening script to delete user profile from Windows device..."
-    &$section "SECTION 3: Deleting User Profiles"
-
-    do {
-        $profiles = Get-WmiObject -Class Win32_UserProfile | Where-Object { !$_.Special }
-        $i = 0
-        $profiles | ForEach-Object {
-            $i++
-            &$confirm "$i. $($_.LocalPath)"
-        }
-
-        &$info "Enter the number of the profile you want to remove or or any key to return to main menu:"
-        $selectedNumber = Read-Host
-
-        if ($selectedNumber.ToUpper() -eq 'Q') {
-            return
-        }
-
-        if ($selectedNumber -match '^\d+$' -and [int]$selectedNumber -gt 0 -and [int]$selectedNumber -le $i) {
-            $selectedProfile = $profiles[[int]$selectedNumber - 1]
-            &$info "Are you sure you want to remove the profile at $($selectedProfile.LocalPath)? (Y/N): "
-            $confirm = (Read-Host).ToUpper()
-            if ($confirm -eq 'Y') {
-                try {
-                    $verboseOutput = $selectedProfile | Remove-WmiObject -Verbose 4>&1
-                    &$console $verboseOutput
-                    &$confirm "Profile removed successfully."
-                    break
-                } catch {
-                    &$logError "Failed to remove profile: $_"
-                }
-            } else {
-                &$info "Profile removal canceled."
-                Select-Option
-            }
-        } else {
-            &$logError "Invalid input. Please enter a valid number corresponding to a user profile."
-        }
-
-        &$info "Do you want to try again? (Y/N):"
-        $tryAgain = (Read-Host).ToUpper()
-    } while ($tryAgain -eq 'Y')
-
-    &$info "Would you like to (1) remove another profile, (2) return to the main menu, or (3) quit?"
-    $userDecision = Read-Host "Enter your choice (1, 2, or 3):"
-    switch ($userDecision) {
-        '1' { DeleteUserProfile }
-        '2' { Select-Option }
-        '3' { &$confirm "Exiting..." ; exit }
-        default { &$logError "Invalid selection, returning to main menu." ; Select-Option }
-    }
-}
-
+# Function to clear common program caches
 function ClearCommonProgramCache {
-    &$section "SECTION 4: Clear Cache From Common Windows Programs"
+    Write-Section "SECTION 4: Clear Cache From Common Windows Programs"
 
-    &$info "Listing Device Users"
-    # Write Information to the screen
-    &$info "Exporting the list of users to c:\users\$env:USERNAME\users.csv..."
-    # List the users in c:\users and export to the local profile for calling later
-    dir C:\Users | select Name | Export-Csv -Path C:\users\$env:USERNAME\users.csv -NoTypeInformation
-    $list=Test-Path C:\users\$env:USERNAME\users.csv
-    &$info "User List Saved..."
+    # Define smaller functions within the main function
+    function FetchInstalledPrograms {
+        Fetch-And-Display-InstalledPrograms
+    }
 
-    &$info "Listing Installed Programs"
-    # Begin process of retrieving installed programs from the registry
-    &$info "Exporting the list of Installed Programs to C:\users\$env:USERNAME\installed_programs.csv..."
+    function RemoveCacheItems {
+        param (
+            [string]$ProfilePath,
+            [string]$CachePath
+        )
+        $fullPath = Join-Path -Path $ProfilePath -ChildPath $CachePath
+        Write-Info "Removing cache at $fullPath"
+        Remove-Item -Path $fullPath -Recurse -Force -ErrorAction SilentlyContinue -Verbose
+        Write-Info "Cache removed at $fullPath"
+    }
 
-    # Get list of installed programs from registry and store in CSV
-    $registryPaths = @(
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
-
-    # Retrieve the display names of installed applications from the registry
-    $installedPrograms = $registryPaths | ForEach-Object {
-        Get-ItemProperty $_
-    } | Select-Object DisplayName | Where-Object { $_.DisplayName -ne $null }
-
-    # Export the list of installed programs to CSV
-    $installedPrograms | Export-Csv -Path C:\users\$env:USERNAME\installed_programs.csv -NoTypeInformation -Force
-
-    &$confirm "List of Installed Programs saved"
-    ""
-
-    &$info  "Running Script..."
-    &$info "Starting up cache clearing process..."
-
-    if ($list) {
-        ""
-        # Function to check if a program is installed
-        function Is-Installed($appName) {
-            $installedPrograms | Where-Object { $_.DisplayName -like "*$appName*" } | Select-Object -First 1
-        }
-
-        &$info "Scanning for Mozilla Firefox"
-        ""
-        # Clear Mozilla Firefox Cache if installed
+    function ClearFirefoxCache {
         if (Is-Installed "Mozilla Firefox") {
-
-            &$info "Clearing Mozilla Firefox Caches"
-            &$info "Starting clearing Mozilla caches task..."
-            &$console
-            Import-CSV -Path C:\users\$env:USERNAME\users.csv -Header Name | foreach {
+            Write-Info "Clearing Mozilla Firefox Caches"
+            Import-Csv -Path C:\users\$env:USERNAME\users.csv | ForEach-Object {
                 $ProfilePath = "C:\Users\$($_.Name)\AppData\Local\Mozilla\Firefox\Profiles\*.default"
-
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "cache\*.*") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "cache2\entries\*.*") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "thumbnails\*") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "cookies.sqlite") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "webappsstore.sqlite") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "chromeappsstore.sqlite") -Recurse -Force -EA SilentlyContinue -Verbose
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "cache\*"
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "cache2\entries\*.*"
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "thumbnails\*"
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "cookies.sqlite"
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "webappsstore.sqlite"
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "chromeappsstore.sqlite"
             }
-            &$confirm "Clearing Mozilla Firefox caches completed."
-            &$confirm "Done..."
+            Write-Confirm "Clearing Mozilla Firefox caches completed."
         } else {
-            &$info "Mozilla Firefox is not installed"
-            &$info "skipping task..."
-            &$info "Starting next process..."
-            &$info "Scanning for Adobe Acrobat..."
-            ""
-        }
-
-        &$info "Starting next process..."
-        &$info "Scanning for Adobe Acrobat..."
-        ""
-
-        if (Is-Installed "Adobe Reader") {
-            # Clear Adobe Acrobat Cache
-
-            &$info "Clearing Adobe Acrobat Caches"
-            &$info "Starting clearing of Adobe caches task..."
-
-            Import-CSV -Path C:\users\$env:USERNAME\users.csv -Header Name | foreach {
-                $ProfilePath = "C:\Users\$env:USERNAME\AppData\Local\Adobe\Acrobat\DC"
-
-                # Clearing general cache
-                &$info "Clearing general Acrobat cache..."
-                &$console
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "Cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
-
-                # Clearing cookie files
-                &$info "Clearing Acrobat cookie files..."
-                &$console
-                Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath "Acrobat\Cookie\*") -Recurse -Force -EA SilentlyContinue -Verbose
-
-                # Handling AcroCef Cache
-                $AcroCefPath = "C:\Users\$env:USERNAME\AppData\Local\Adobe\AcroCef\DC\Acrobat\Cache"
-                &$info "Clearing AcroCef cache and filtering specific files..."
-                &$console
-                Remove-Item -Path (Join-Path -Path $AcroCefPath -ChildPath "*.log") -Force -Verbose -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $AcroCefPath -ChildPath "*.tmp") -Recurse -Force -EA SilentlyContinue -Verbose
-
-                # Handling ARM Cache (assuming clearing empty directories)
-                $ARMPath = "C:\Users\$env:USERNAME\AppData\Local\Adobe\ARM"
-                &$info "Cleaning up empty directories in Adobe ARM..."
-                &$console
-                Get-ChildItem -Path $ARMPath -Directory | Where-Object { $_.GetFileSystemInfos().Count -eq 0 } | Remove-Item -Recurse -Force -Verbose -EA SilentlyContinue
-
-                # Managing specific Acrobat DC files
-                &$info "Handling specific Acrobat DC files..."
-                &$console
-                $specificFiles = @("UserCache64.bin", "DCAPIDiscoveryCacheAcrobat", "IconCacheAcro65536.dat", "IconCacheAcro98304.dat")
-                foreach ($file in $specificFiles) {
-                    Remove-Item -Path (Join-Path -Path $ProfilePath -ChildPath $file) -Force -Verbose -EA SilentlyContinue
-                }
-
-                &$confirm "Adobe cache and specific files cleanup completed."
-                &$confirm "Done..."
-                &$info "Starting Scan for Google Chrome..."
-                ""
-            }
-        } else {
-            &$info "Adobe Acrobat is not installed..."
-            &$info "skipping task..."
-            &$confirm "Starting next process..."
-            &$info "Starting Scan for Google Chrome..."
-            ""
-        }
-
-        # Clear Google Chrome Cache if installed
-        if (Is-Installed "Google Chrome") {
-            &$info "Clearing Google Chrome Caches"
-            &$info "Starting clearing Google Chrome caches task..."
-            &$console
-
-            Import-CSV -Path C:\users\$env:USERNAME\users.csv -Header Name | foreach {
-                $ChromePath = "C:\Users\$($_.Name)\AppData\Local\Google\Chrome\User Data\Default"
-
-                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cache2\entries\*") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cookies\*") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Media Cache\*") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "Cookies-Journal\*") -Recurse -Force -EA SilentlyContinue -Verbose
-                Remove-Item -Path (Join-Path -Path $ChromePath -ChildPath "ChromeDWriteFontCache\*") -Recurse -Force -EA SilentlyContinue -Verbose
-            }
-
-            &$info "Clearing Google Chrome caches completed."
-            &$confirm "Done..."
-            &$info "Starting Scan for Windows Cache..."
-            &$break
-        } else {
-            &$info "Google Chrome is not installed."
-            &$info "skipping task..."
-            &$confirm "Starting next process..."
-            &$confirm "Starting Scan for Windows System Cache..."
-        }
-
-        # Clear temporary Files
-
-        &$info "Cleaning up in local Windows"
-        &$info "Running local system Cache Cleanup Task..."
-        &$console
-        Import-CSV -Path C:\users\$env:USERNAME\users.csv | foreach {
-            Remove-Item -path "C:\Windows\Temp\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Windows\prefetch\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\Temporary Internet Files\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\Caches\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\ActionCenterCache\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\Caches\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\Caches\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\WER\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Temp\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Edge\User Data\Default\Code Cache\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\AppData\Local\Microsoft\Edge\User Data\ShaderCache\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            Remove-Item -path "C:\Users\$($_.Name)\Microsoft\Edge\User Data\Default\Cache\*" -Recurse -Force -EA SilentlyContinue -Verbose
-
-            Remove-Item -path "C:\`$recycle.bin\*" -Recurse -Force -EA SilentlyContinue -Verbose
-            &$confirm "Done..."
-            &$info "Starting next process..."
-            ""
+            Write-Info "Mozilla Firefox is not installed, skipping task..."
         }
     }
 
-    $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
+    function ClearAdobeCache {
+        if (Is-Installed "Adobe Reader") {
+            Write-Info "Clearing Adobe Acrobat Caches"
+            Import-Csv -Path C:\users\$env:USERNAME\users.csv | ForEach-Object {
+                $ProfilePath = "C:\Users\$($_.Name)\AppData\Local\Adobe\Acrobat\DC"
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "Cache\*"
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "Acrobat\Cookie\*"
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "*.log"
+                RemoveCacheItems -ProfilePath $ProfilePath -CachePath "*.tmp"
+            }
+            Write-Confirm "Adobe cache and specific files cleanup completed."
+        } else {
+            Write-Info "Adobe Acrobat is not installed, skipping task..."
+        }
+    }
+
+    function ClearChromeCache {
+        if (Is-Installed "Google Chrome") {
+            Write-Info "Clearing Google Chrome Caches"
+            Import-Csv -Path C:\users\$env:USERNAME\users.csv | ForEach-Object {
+                $ChromePath = "C:\Users\$($_.Name)\AppData\Local\Google\Chrome\User Data\Default"
+                RemoveCacheItems -ProfilePath $ChromePath -CachePath "Cache\*"
+                RemoveCacheItems -ProfilePath $ChromePath -CachePath "Cache2\entries\*"
+                RemoveCacheItems -ProfilePath $ChromePath -CachePath "Cookies\*"
+                RemoveCacheItems -ProfilePath $ChromePath -CachePath "Media Cache\*"
+                RemoveCacheItems -ProfilePath $ChromePath -CachePath "Cookies-Journal\*"
+                RemoveCacheItems -ProfilePath $ChromePath -CachePath "ChromeDWriteFontCache\*"
+            }
+            Write-Confirm "Clearing Google Chrome caches completed."
+        } else {
+            Write-Info "Google Chrome is not installed, skipping task..."
+        }
+    }
+
+    function ClearWindowsCache {
+        Write-Info "Cleaning up local Windows system caches"
+        Import-Csv -Path C:\users\$env:USERNAME\users.csv | ForEach-Object {
+            RemoveCacheItems -ProfilePath "C:\Windows" -CachePath "Temp\*"
+            RemoveCacheItems -ProfilePath "C:\Windows" -CachePath "prefetch\*"
+            RemoveCacheItems -ProfilePath "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows" -CachePath "Temporary Internet Files\*"
+            RemoveCacheItems -ProfilePath "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows" -CachePath "Caches\*"
+            RemoveCacheItems -ProfilePath "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows" -CachePath "ActionCenterCache\*"
+            RemoveCacheItems -ProfilePath "C:\Users\$($_.Name)\AppData\Local\Microsoft\Windows\WER" -CachePath "*"
+            RemoveCacheItems -ProfilePath "C:\Users\$($_.Name)\AppData\Local\Temp" -CachePath "*"
+            RemoveCacheItems -ProfilePath "C:\Users\$($_.Name)\AppData\Local\Microsoft\Edge\User Data\Default\Code Cache" -CachePath "*"
+            RemoveCacheItems -ProfilePath "C:\Users\$($_.Name)\AppData\Local\Microsoft\Edge\User Data\ShaderCache" -CachePath "*"
+            RemoveCacheItems -ProfilePath "C:\Users\$($_.Name)\Microsoft\Edge\User Data\Default\Cache" -CachePath "*"
+            RemoveCacheItems -ProfilePath "C:\`$recycle.bin" -CachePath "*"
+        }
+        Write-Confirm "Local Windows system cache cleanup completed."
+    }
+
+    # Execute the functions in order
+    FetchInstalledPrograms
+    ClearFirefoxCache
+    ClearAdobeCache
+    ClearChromeCache
+    ClearWindowsCache
+
+    Write-Host "Press 'Y' to return to the main menu, or any other key to exit."
+    $returnToMenu = Read-Host
     if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
-        Select-Option
+        Show-Menu
     } else {
-        &$confirm "Exiting..."
+        Write-Confirm "Exiting..."
     }
 }
 
 function PerformDiskCleanup {
-    &$confirm "Opening disk cleanup..."
-    &$section "SECTION 5: Disk Cleanup"
+    Write-Section "SECTION 5: Disk Cleanup"
 
-    # Clearing any previous CleanMgr.exe automation settings to ensure a clean state
-    &$info "Clearing previous automation settings..."
-    &$console
-    try {
-        Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\*' -Name StateFlags0001 -ErrorAction SilentlyContinue -Verbose |
-        Remove-ItemProperty -Name StateFlags0001 -ErrorAction SilentlyContinue -Verbose
-    } catch {
-        &$logError "Error clearing automation settings: $_"
+    function ClearPreviousSettings {
+        Write-Info "Clearing previous automation settings..."
+        try {
+            Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\*' -Name StateFlags0001 -ErrorAction SilentlyContinue -Verbose |
+            Remove-ItemProperty -Name StateFlags0001 -ErrorAction SilentlyContinue -Verbose
+        } catch {
+            Write-LogError "Error clearing automation settings: $_"
+        }
     }
 
-    # Enabling Update Cleanup, traditionally automated in Windows 10 and beyond, ensures updates are cleaned on Windows 11
-    &$info "Enabling Update Cleanup. Automatically managed in Windows 10 and set manually for assurance in Windows 11..."
-    &$console
-    try {
-        New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Update Cleanup' -Name StateFlags0001 -Value 2 -PropertyType DWord -ErrorAction Stop -Verbose
-    } catch {
-        &$logError "Error setting Update Cleanup: $_"
+    function EnableUpdateCleanup {
+        Write-Info "Enabling Update Cleanup. Automatically managed in Windows 10 and set manually for assurance in Windows 11..."
+        try {
+            New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Update Cleanup' -Name StateFlags0001 -Value 2 -PropertyType DWord -ErrorAction Stop -Verbose
+        } catch {
+            Write-LogError "Error setting Update Cleanup: $_"
+        }
     }
 
-    # Enabling Temporary Files Cleanup to ensure temporary files are managed correctly
-    &$info "Enabling Temporary Files Cleanup..."
-    &$console
-    try {
-        New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Temporary Files' -Name StateFlags0001 -Value 2 -PropertyType DWord -ErrorAction Stop -Verbose
-    } catch {
-        &$logError "Error setting Temporary Files Cleanup: $_"
+    function EnableTempFilesCleanup {
+        Write-Info "Enabling Temporary Files Cleanup..."
+        try {
+            New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Temporary Files' -Name StateFlags0001 -Value 2 -PropertyType DWord -ErrorAction Stop -Verbose
+        } catch {
+            Write-LogError "Error setting Temporary Files Cleanup: $_"
+        }
     }
 
-    # Starting the CleanMgr.exe process to run cleanup tasks
-    &$info "Starting Disk Cleanup to perform cleanup tasks..."
-    &$console
-    try {
-        Start-Process -FilePath CleanMgr.exe -ArgumentList '/sagerun:1' -WindowStyle Hidden -Wait
-        # Wait for all associated CleanMgr processes to complete
-        &$info "Waiting for Disk Cleanup process to complete..."
-        Get-Process -Name cleanmgr -ErrorAction SilentlyContinue -Verbose | Wait-Process
-        &$confirm "Disk Cleanup process Done..."
-    } catch {
-        &$logError "Error starting or waiting for CleanMgr.exe: $_"
+    function StartDiskCleanup {
+        Write-Info "Starting Disk Cleanup to perform cleanup tasks..."
+        try {
+            Start-Process -FilePath CleanMgr.exe -ArgumentList '/sagerun:1' -WindowStyle Hidden -Wait
+            Write-Info "Waiting for Disk Cleanup process to complete..."
+            Get-Process -Name cleanmgr -ErrorAction SilentlyContinue -Verbose | Wait-Process
+            Write-Confirm "Disk Cleanup process completed."
+        } catch {
+            Write-LogError "Error starting or waiting for CleanMgr.exe: $_"
+        }
     }
 
-    # Remove automation flags after completion
-    try {
-        &$console
-        Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\*' -Name StateFlags0001 -ErrorAction SilentlyContinue -Verbose |
-        Remove-ItemProperty -Name StateFlags0001 -ErrorAction SilentlyContinue -Verbose
-        &$confirm "Disk Cleanup automation settings have been cleared..."
-    } catch {
-        &$logError "Error clearing automation settings post-cleanup: $_"
+    function ClearAutomationFlags {
+        Write-Info "Clearing automation settings post-cleanup..."
+        try {
+            Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\*' -Name StateFlags0001 -ErrorAction SilentlyContinue -Verbose |
+            Remove-ItemProperty -Name StateFlags0001 -ErrorAction SilentlyContinue -Verbose
+            Write-Confirm "Disk Cleanup automation settings have been cleared."
+        } catch {
+            Write-LogError "Error clearing automation settings post-cleanup: $_"
+        }
     }
 
-    &$confirm "Disk Cleanup task completed."
+    ClearPreviousSettings
+    EnableUpdateCleanup
+    EnableTempFilesCleanup
+    StartDiskCleanup
+    ClearAutomationFlags
 
     $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
     if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
-        Select-Option
+        Show-Menu
     } else {
-        &$confirm "Exiting..."
+        Write-Confirm "Exiting..."
     }
 }
 
 function RepairOSImage {
     Clear-Host
-    &$section "SECTION 6: Repair OS-Image"
+    Write-Section "SECTION 6: Repair OS-Image"
 
-    &$info "Starting OS-Image repair task..."
-    Write-Host -ForegroundColor Yellow "Checking and Repairing OS-Image..."
-    # Run DISM to check and restore system health
-    try {
-        $dismResult = DISM /Online /Cleanup-Image /Restore-health
-        if ($LASTEXITCODE -ne 0) {
-            throw "DISM failed with exit code $LASTEXITCODE"
+    function StartOSRepair {
+        Write-Info "Starting OS-Image repair task..."
+        try {
+            $dismResult = DISM /Online /Cleanup-Image /Restore-health
+            if ($LASTEXITCODE -ne 0) {
+                throw "DISM failed with exit code $LASTEXITCODE"
+            }
+            Write-Confirm "OS-Image repair task completed successfully."
+        } catch {
+            Write-LogError "An error occurred during DISM operation: $_"
         }
-        &$confirm "OS-Image repair task completed successfully."
-    } catch {
-        &$logError "An error occurred during DISM operation: $_"
     }
+
+    StartOSRepair
 
     $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
     if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
-        Select-Option
+        Show-Menu
     } else {
-        &$confirm "Exiting..."
+        Write-Confirm "Exiting..."
     }
 }
 
 function OptimizeDisks {
     Clear-Host
-    &$section "SECTION 7: Disk Defragmentation, Optimization, and TRIM for SSDs"
+    Write-Section "SECTION 7: Disk Defragmentation, Optimization, and TRIM for SSDs"
 
-    &$info "Collecting Disk type Information..."
-    $disks = Get-PhysicalDisk | Select-Object DeviceID, MediaType
+    function CollectDiskInfo {
+        Write-Info "Collecting Disk type Information..."
+        $global:disks = Get-PhysicalDisk | Select-Object DeviceID, MediaType
+    }
 
-    foreach ($disk in $disks) {
-        &$info "Checking if disk is HDD or SSD..."
+    function AnalyzeAndDefrag {
+        foreach ($disk in $global:disks) {
+            Write-Info "Checking if disk is HDD or SSD..."
 
-        if ($disk.MediaType -eq 'HDD') {
-            &$info "Disk $($disk.DeviceID) is an HDD. Initiating defragmentation process..."
-            $volumes = Get-WmiObject -Class Win32_Volume | Where-Object { $_.DriveType -eq 3 }
+            if ($disk.MediaType -eq 'HDD') {
+                Write-Info "Disk $($disk.DeviceID) is an HDD. Initiating defragmentation process..."
+                $volumes = Get-WmiObject -Class Win32_Volume | Where-Object { $_.DriveType -eq 3 }
 
-            foreach ($volume in $volumes) {
-                if ($volume.DriveLetter -ne $null) {
-                    &$info "Analyzing and defragmenting volume: $($volume.Caption)..."
-                    $analysis = $volume.DefragAnalysis()
-                    if ($analysis.DefragAnalysis) {
-                        &$console "Fragmentation Level: $($analysis.DefragAnalysis.TotalPercentFragmentation)%"
-                    }
+                foreach ($volume in $volumes) {
+                    if ($volume.DriveLetter -ne $null) {
+                        Write-Info "Analyzing and defragmenting volume: $($volume.Caption)..."
+                        $analysis = $volume.DefragAnalysis()
+                        if ($analysis.DefragAnalysis) {
+                            Write-Console "Fragmentation Level: $($analysis.DefragAnalysis.TotalPercentFragmentation)%"
+                        }
 
-                    $defragResult = $volume.Defrag($true)
-                    if ($defragResult.ReturnValue -eq 0) {
-                        &$confirm "Defragmentation successful on volume: $($volume.Caption)"
-                    } else {
-                        &$logError "Defragmentation failed with code: $($defragResult.ReturnValue) on volume: $($volume.Caption)"
+                        $defragResult = $volume.Defrag($true)
+                        if ($defragResult.ReturnValue -eq 0) {
+                            Write-Confirm "Defragmentation successful on volume: $($volume.Caption)"
+                        } else {
+                            Write-LogError "Defragmentation failed with code: $($defragResult.ReturnValue) on volume: $($volume.Caption)"
+                        }
                     }
                 }
-            }
-        } elseif ($disk.MediaType -eq 'SSD') {
-            &$info "Disk $($disk.DeviceID) is an SSD. Initiating TRIM command..."
-            $volumes = Get-WmiObject -Class Win32_Volume | Where-Object { $_.DriveType -eq 3 }
+            } elseif ($disk.MediaType -eq 'SSD') {
+                Write-Info "Disk $($disk.DeviceID) is an SSD. Initiating TRIM command..."
+                $volumes = Get-WmiObject -Class Win32_Volume | Where-Object { $_.DriveType -eq 3 }
 
-            foreach ($volume in $volumes) {
-                if ($volume.DriveLetter -ne $null) {
-                    &$info "Performing TRIM on volume: $($volume.Caption)..."
-                    Optimize-Volume -DriveLetter $volume.DriveLetter -ReTrim -Verbose
+                foreach ($volume in $volumes) {
+                    if ($volume.DriveLetter -ne $null) {
+                        Write-Info "Performing TRIM on volume: $($volume.Caption)..."
+                        Optimize-Volume -DriveLetter $volume.DriveLetter -ReTrim -Verbose
+                    }
                 }
+            } else {
+                Write-Info "Disk $($disk.DeviceID) is neither HDD nor SSD or type is unknown. No specific action taken."
             }
-        } else {
-            &$info "Disk $($disk.DeviceID) is neither HDD nor SSD or type is unknown. No specific action taken."
         }
     }
 
+    CollectDiskInfo
+    AnalyzeAndDefrag
+
     $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
     if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
-        Select-Option
+        Show-Menu
     } else {
-        &$confirm "Exiting..."
+        Write-Confirm "Exiting..."
     }
 }
 
 function FlushDNSCache {
-    &$section "SECTION 8: Clearing DNS Client Cache"
+    Write-Section "SECTION 8: Clearing DNS Client Cache"
 
-    &$info "Starting DNS Client cache clean up task..."
-    &$info "Flushing DNS..."
-    # Flushing DNS
-    Clear-DnsClientCache 
-    &$confirm "DNS Flush task Done..."
+    function StartDNSFlush {
+        Write-Info "Starting DNS Client cache clean up task..."
+        Write-Info "Flushing DNS..."
+        try {
+            Clear-DnsClientCache
+            Write-Confirm "DNS Flush task completed."
+        } catch {
+            Write-LogError "Error occurred while flushing DNS: $_"
+        }
+    }
+
+    StartDNSFlush
 
     $returnToMenu = Read-Host "Press 'Y' to return to the main menu, or any other key to exit."
     if ($returnToMenu -eq 'Y' -or $returnToMenu -eq 'y') {
-        Select-Option
+        Show-Menu
     } else {
-        &$confirm "Exiting..."
+        Write-Confirm "Exiting..."
     }
 }
 
 function Run-ChkdskAndRestart {
-    &$section "SECTION 9: Disk Check and Restart"
-    # Function to run chkdsk and handle the prompt automatically, then restart
-    &$info "Scheduling disk check and preparing to restart..."
+    Write-Section "SECTION 9: Disk Check and Restart"
 
-    # Schedule chkdsk to run with confirmation 'Y' automatically piped into it
-    echo Y | chkdsk C: /v /f /r
+    function ScheduleChkdsk {
+        Write-Info "Scheduling disk check and preparing to restart..."
+        try {
+            echo Y | chkdsk C: /v /f /r
+            Start-Sleep -Seconds 5
+            Write-Info "Restarting the computer now..."
+            shutdown /r /t 0
+        } catch {
+            Write-LogError "Error occurred while scheduling chkdsk or restarting: $_"
+        }
+    }
 
-    # Wait for a moment before initiating a restart to ensure command processes
-    Start-Sleep -Seconds 5
+    ScheduleChkdsk
+}
 
-    # Using PowerShell to shutdown and restart the computer immediately
-    &$info "Restarting the computer now..."
-    shutdown /r /t 0
+# Main Menu and option selection functionality
+function Show-Menu {
+    param ([string]$Title = 'Computer Clean Up Menu')
+    Write-Section $Title
+    
+    # Menu options
+    Write-Confirm "1: User Session Management - Logs off all users except the current. (Recommended)"
+    Write-Confirm "2: Delete user profile from windows device"
+    Write-Confirm "3: Deep Cache Clearing - Clears system and application caches."
+    Write-Confirm "4: Common Program Cache Cleaning - Clears cache from browsers and more."
+    Write-Confirm "5: Disk Cleanup - Cleans temporary files and updates."
+    Write-Confirm "6: OS Image Repair - Runs DISM and SFC to repair system files."
+    Write-Confirm "7: Disk Optimization - Optimizes HDDs and SSDs."
+    Write-Confirm "8: DNS Cache Flush - Clears DNS cache to resolve network issues."
+    Write-Confirm "9: Disk Check and Restart - Intensive scan and repair. WARNING: Restarts immediately!"
+    Write-Confirm "Q: Quit - Exit the menu and end the session."
+
+    # Get validated user input
+    $selection = Get-ValidatedInput "Please select an option" @("1","2","3","4","5","6","7","8","9","Q")
+    switch ($selection) {
+        '1' { LogOffAllUsersExceptCurrent }
+        '2' { DeleteUserProfile }
+        '3' { DeepCacheClearing }
+        '4' { ClearCommonProgramCache }
+        '5' { PerformDiskCleanup }
+        '6' { RepairOSImage }
+        '7' { OptimizeDisks }
+        '8' { FlushDNSCache }
+        '9' { Run-ChkdskAndRestart }
+        'Q' { exit }
+        default { Write-LogError "Invalid selection, please try again."; Show-Menu }
+    }
 }
 
 # Call the menu function to start the script
-Select-Option
+Show-Menu
